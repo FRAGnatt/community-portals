@@ -45,6 +45,21 @@ describe("parseSearchPage", () => {
     });
   });
 
+  test("maps an ASAP posting's deadline to null (no stated deadline)", () => {
+    // apply_deadline_asap means "no fixed deadline, apply now". The /scrape
+    // schema defines null as exactly that, and every consumer (rank's expiry
+    // sweep, notion-sync's typed date column) does date arithmetic on this
+    // field - a bare "ASAP" string broke all of them on half of live results
+    // (review finding F12, 2026-08-19). lastdate present too: the flag wins.
+    const [job] = parseSearchPage(
+      stashPage({
+        hitcount: 1,
+        results: [{ ...RESULT, apply_deadline: undefined, apply_deadline_asap: true, lastdate: "2026-09-30" }],
+      }),
+    ).results;
+    expect(job.deadline).toBeNull();
+  });
+
   test("falls back to lastdate when apply_deadline is absent", () => {
     const [job] = parseSearchPage(
       stashPage({ hitcount: 1, results: [{ ...RESULT, apply_deadline: undefined, lastdate: "2026-09-30" }] }),

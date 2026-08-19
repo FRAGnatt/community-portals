@@ -169,7 +169,7 @@ bun run src/cli.ts detail h1647303 --format plain
 ```
 
 **Field notes:**
-- `deadline` — application deadline date string; `null` if not listed.
+- `deadline` — application deadline date string (`YYYY-MM-DD`); `null` if not listed. Postings flagged "ASAP" by the portal carry no fixed deadline and also map to `null`.
 - `employmentType` — e.g. `"Fastansættelse"`, `"Midlertidig ansættelse"`; `null` if not listed.
 - `hours` — e.g. `"Fuldtid"`, `"Deltid"`; `null` if not listed.
 - `applyUrl` — the external application URL (resolved from the Jobindex redirect link `/c?t=...`); `null` if not available.
