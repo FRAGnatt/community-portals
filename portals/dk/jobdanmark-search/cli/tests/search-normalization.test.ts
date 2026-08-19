@@ -44,6 +44,33 @@ describe("Jobdanmark search normalization", () => {
     expect(result.company).toBe("Statens It");
   });
 
+  test("extracts the city when a comma follows the postcode (live jobdanmark shape)", () => {
+    const result = normalizeItem({
+      ...item(),
+      companyAddress: "2670, Greve",
+    });
+
+    expect(result.location).toBe("Greve");
+  });
+
+  test("trims trailing whitespace from the extracted city", () => {
+    const result = normalizeItem({
+      ...item(),
+      companyAddress: "7100, Vejle ",
+    });
+
+    expect(result.location).toBe("Vejle");
+  });
+
+  test("does not mistake a 4-digit street number for the postcode", () => {
+    const result = normalizeItem({
+      ...item(),
+      companyAddress: "Vejlevej 1234, 7100 Vejle",
+    });
+
+    expect(result.location).toBe("Vejle");
+  });
+
   test("survives a null companyAddress from the API", () => {
     const result = normalizeItem({
       ...item(),

@@ -39,6 +39,18 @@ function toContractDate(value: string | null): string | null {
   return match ? `${match[3]}-${match[2]}-${match[1]}` : (value ?? null)
 }
 
+// Live companyAddress values put the city after the postcode either as
+// "Lautruphoej 2, 2750 Ballerup" or "2670, Greve". The comma fallback
+// requires a non-digit after the comma so a 4-digit street number
+// ("Vejlevej 1234, 7100 Vejle") never wins over the real postcode.
+function extractCity(address: string | null): string | null {
+  if (!address) return null
+  const city =
+    address.match(/\d{4}\s+(.+)$/)?.[1] ?? address.match(/\d{4}\s*,\s*([^\d,].*)$/)?.[1]
+  const trimmed = city?.trim()
+  return trimmed ? trimmed : null
+}
+
 export function normalizeItem(item: ApiSearchItem): Record<string, unknown> {
   const relativeUrl = item.url
   const fullUrl = relativeUrl.startsWith("http")
@@ -83,7 +95,7 @@ export function normalizeItem(item: ApiSearchItem): Record<string, unknown> {
     coverImage,
     silhouetteLogo: item.silhouetteLogo,
     company: item.companyName,
-    location: item.companyAddress?.match(/\d{4}\s+(.+)$/)?.[1] ?? null,
+    location: extractCity(item.companyAddress),
     date: toContractDate(item.publishedDate),
     deadline: toContractDate(item.applicationDeadline),
   }
