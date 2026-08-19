@@ -34,7 +34,7 @@ interface ApiSearchResponse {
   totalPages: number
 }
 
-function toContractDate(value: string | null): string | null {
+export function toContractDate(value: string | null): string | null {
   const match = value?.match(/^(\d{2})-(\d{2})-(\d{4})$/)
   return match ? `${match[3]}-${match[2]}-${match[1]}` : (value ?? null)
 }
@@ -43,7 +43,7 @@ function toContractDate(value: string | null): string | null {
 // "Lautruphoej 2, 2750 Ballerup" or "2670, Greve". The comma fallback
 // requires a non-digit after the comma so a 4-digit street number
 // ("Vejlevej 1234, 7100 Vejle") never wins over the real postcode.
-function extractCity(address: string | null): string | null {
+export function extractCity(address: string | null): string | null {
   if (!address) return null
   const city =
     address.match(/\d{4}\s+(.+)$/)?.[1] ?? address.match(/\d{4}\s*,\s*([^\d,].*)$/)?.[1]
