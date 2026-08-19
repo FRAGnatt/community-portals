@@ -59,32 +59,14 @@ export function normalizeItem(item: ApiSearchItem): Record<string, unknown> {
   // Extract slug from url path: /job/<slug>
   const slug = relativeUrl.replace(/^\/job\//, "")
 
-  const companyLogo = item.companyLogo
-    ? {
-        key: item.companyLogo.key,
-        url: item.companyLogo.url.startsWith("http")
-          ? item.companyLogo.url
-          : `${BASE_URL}${item.companyLogo.url}`,
-        focalPoint: item.companyLogo.focalPoint,
-      }
-    : null
-
-  const coverImage = item.coverImage
-    ? {
-        key: item.coverImage.key,
-        url: item.coverImage.url.startsWith("http")
-          ? item.coverImage.url
-          : `${BASE_URL}${item.coverImage.url}`,
-        focalPoint: item.coverImage.focalPoint,
-      }
-    : null
-
+  // Presentation-only keys (coverImage, companyLogo, companyLogoSvgMarkup,
+  // overlayColor, silhouetteLogo) are dropped: they were ~40% of a live
+  // payload and the /scrape agent can never use an image or overlay colour.
+  // The #340 compatibility duplicates (companyName, publishedDate,
+  // applicationDeadline) stay.
   return {
     title: item.title,
     companyName: item.companyName,
-    companyLogo,
-    companyLogoSvgMarkup: item.companyLogoSvgMarkup ?? null,
-    overlayColor: item.overlayColor ?? null,
     companyAddress: item.companyAddress,
     jobTypes: item.jobTypes,
     boostJob: item.boostJob,
@@ -92,8 +74,6 @@ export function normalizeItem(item: ApiSearchItem): Record<string, unknown> {
     applicationDeadline: item.applicationDeadline ?? null,
     url: fullUrl,
     slug,
-    coverImage,
-    silhouetteLogo: item.silhouetteLogo,
     company: item.companyName,
     location: extractCity(item.companyAddress),
     date: toContractDate(item.publishedDate),
