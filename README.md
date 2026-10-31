@@ -12,13 +12,11 @@ Job portal search skills for [AI Job Search](https://github.com/ai-job-search-de
 
 ## Use a portal
 
-Copy the folder for your job board into `.agents/skills/` in your AI Job Search checkout, then run:
+In your AI Job Search checkout, ask your agent:
 
-```bash
-python3 tools/install_portal_clis.py
-```
+> Copy https://github.com/ai-job-search-dev/community-portals/tree/main/jobindex-search into `.agents/skills/`, show me what it does, then run `python3 tools/install_portal_clis.py`.
 
-`/scrape` picks it up automatically.
+Swap `jobindex-search` for your job board's folder. `/scrape` picks it up automatically.
 
 ## Add a portal
 
