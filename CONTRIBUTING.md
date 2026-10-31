@@ -47,7 +47,7 @@ Ownership is GitHub's native [code owners](https://docs.github.com/en/repositori
 
 - **The first line is the fallback.** The maintainers own everything not listed further down, including `.github/CODEOWNERS` itself. The last matching line wins, so a portal's own line overrides it.
 - **A portal can have several owners.** List them on one line. GitHub requests a review from all of them, and an approval from any one of them is enough. Several owners means a portal survives one of them going quiet, and new co-owners are welcome: open a PR adding your handle to the line.
-- **Owners need write access.** GitHub only requests reviews from owners who can write to the repo. When your first portal merges, a maintainer invites you as a collaborator. Write access exists so you can review; changes to `main` still go through a reviewed PR.
+- **Owners get the Write role on this repo.** GitHub only requests reviews from owners who can write to the repo, so when your first portal merges, a maintainer invites you as an outside collaborator with Write on this repo only. You don't join the organization, and you don't get access to any other repo. Write access exists so you can review: changes to `main` still go through a reviewed PR, and your approval only counts for the portals you own.
 - **Changes to `.github/CODEOWNERS` are approved by a maintainer.** GitHub reads the owners from `main`, not from the PR, so nobody can make themselves an owner and approve their own change in one step.
 
 ### Step down
