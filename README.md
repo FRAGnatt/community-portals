@@ -6,9 +6,11 @@
 
 *Job boards for every market, maintained by the people who search them.*
 
+[Browse the portals](portals/) by country. Missing your job board? **[Add your own](#add-a-portal)** and own it.
+
 Job portal search skills for [AI Job Search](https://github.com/ai-job-search-dev/ai-job-search). The framework stays market-neutral; the job boards live here. This repo is **community driven**: every portal is contributed and owned by the people who use it, so each market gets the job boards it actually needs. One folder per job board, one or more owners per folder.
 
-> Note: Each portal belongs to its owners, who keep it working and is responsible for respecting the job board's terms and `robots.txt`. Read a portal's code before you run it - it runs against your career data.
+> Note: Each portal belongs to its owners, who keep it working and are responsible for respecting the job board's terms and `robots.txt`. Read a portal's code before you run it - it runs against your career data.
 
 ## Use a portal
 
