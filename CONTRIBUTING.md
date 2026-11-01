@@ -33,6 +33,8 @@ Every PR is read before it merges. The bar is not code quality. It is these five
 
 Run what CI runs, in the portal's `cli/` folder: `bun install`, `bun run typecheck`, `bun test`. Tests stay network-free; CI makes no live portal requests, on purpose.
 
+**License:** by contributing, you license your contribution under this repo's [MIT license](LICENSE), as upstream. Keep the license and attribution of anything you bring from a fork.
+
 **Credit norm**, as upstream: a change that incorporates your code gets a `Co-authored-by` trailer; a change written from your report gets a named mention.
 
 ## How ownership works

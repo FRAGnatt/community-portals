@@ -25,3 +25,7 @@ Browse `portals/<country>/` for your market and swap in your job board's folder.
 Built a portal for your market? Generate it with `/add-portal` in AI Job Search, then open a PR here that adds it under `portals/<country>/` and lists you as its owner in `.github/CODEOWNERS`. You own what you add. [CONTRIBUTING.md](CONTRIBUTING.md) covers the layout, the review bar, and how ownership works, including how to step down.
 
 Looking for full market or language adaptations instead? See [Community forks & adaptations](https://github.com/ai-job-search-dev/ai-job-search/discussions/78).
+
+## License
+
+[MIT](LICENSE), as AI Job Search.
