@@ -96,6 +96,24 @@ describe("parseJobPostingFromHtml JSON-LD", () => {
     expect(parseJobPostingFromHtml(page, "a", "https://jobdanmark.dk/job/a").applyUrl).toBe("https://jobdanmark.dk/apply/a?x=1&y=2");
   });
 
+  test("resolves a relative apply href against the page and drops non-web schemes", () => {
+    const applyUrl = (href: string) =>
+      parseJobPostingFromHtml(
+        pageWithScripts(JSON.stringify({ "@type": "JobPosting", title: "A" })).replace(
+          "<body></body>",
+          `<body><a href="${href}" class="action primary">Ans&#xF8;g nu</a></body>`,
+        ),
+        "a",
+        "https://jobdanmark.dk/job/a",
+      ).applyUrl;
+
+    expect(applyUrl("apply")).toBe("https://jobdanmark.dk/job/apply");
+    expect(applyUrl("javascript:alert(1)")).toBeNull();
+    expect(applyUrl(" JavaScript:alert(1)")).toBeNull();
+    expect(applyUrl("data:text/html,hi")).toBeNull();
+    expect(applyUrl("mailto:jobs@example.com")).toBeNull();
+  });
+
   test("skips malformed scripts and finds a JobPosting in an array", () => {
     const scripts = [
       "{not-json",

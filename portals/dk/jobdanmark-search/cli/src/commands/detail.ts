@@ -112,8 +112,15 @@ function isJobPosting(value: unknown): value is JsonLdJobPosting {
   return Boolean(value && typeof value === "object" && (value as JsonLdJobPosting)["@type"] === "JobPosting")
 }
 
-function findApplyUrl(root: ReturnType<typeof parse>): string | null {
-  return normalizeUrl(root.querySelector("a.action.primary")?.getAttribute("href"))
+function findApplyUrl(root: ReturnType<typeof parse>, pageUrl: string): string | null {
+  const href = root.querySelector("a.action.primary")?.getAttribute("href")?.replace(/&amp;/g, "&")
+  if (!href) return null
+  try {
+    const resolved = new URL(href, pageUrl)
+    return resolved.protocol === "http:" || resolved.protocol === "https:" ? resolved.href : null
+  } catch {
+    return null
+  }
 }
 
 function fromJsonLd(jobPosting: JsonLdJobPosting, slug: string, url: string, root: ReturnType<typeof parse>): DetailResult {
@@ -145,7 +152,7 @@ function fromJsonLd(jobPosting: JsonLdJobPosting, slug: string, url: string, roo
       addressCountry: address?.addressCountry ?? null,
     },
     description: descriptionToText(jobPosting.description),
-    applyUrl: findApplyUrl(root),
+    applyUrl: findApplyUrl(root, url),
   }
 }
 
@@ -233,7 +240,7 @@ function fromRenderedHtml(root: ReturnType<typeof parse>, slug: string, url: str
       addressCountry: "DK",
     },
     description,
-    applyUrl: findApplyUrl(root),
+    applyUrl: findApplyUrl(root, url),
   }
 }
 

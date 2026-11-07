@@ -199,7 +199,7 @@ bun run src/cli.ts detail it-chef-soeges-til-rah --format plain
 }
 ```
 
-> **Note**: The `hiringOrganization.logo`, `validThrough`, and `applyUrl` fields may be `null` if not present in the structured data or rendered page. `jobLocation` fields may be `null` if the location data is absent.
+> **Note**: The `hiringOrganization.logo`, `validThrough`, and `applyUrl` fields may be `null` if not present in the structured data or rendered page. `applyUrl` is resolved against the page URL and is also `null` when the apply link is not http(s). `jobLocation` fields may be `null` if the location data is absent.
 
 ---
 
