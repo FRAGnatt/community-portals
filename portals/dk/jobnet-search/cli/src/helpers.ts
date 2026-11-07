@@ -65,7 +65,7 @@ export function stripInvisible<T>(value: T): T {
   return value
 }
 
-const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"])
+const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"])
 
 const RAW_TEXT_TAGS = new Set(["script", "style"])
 
@@ -85,10 +85,19 @@ function isHiddenTag(attrs: Array<[string, string]>): boolean {
   )
 }
 
+// The raw value is checked, so an entity-encoded scheme fails to parse rather than slipping past.
+function isWebUrl(href: string): boolean {
+  try {
+    return /^https?:$/.test(new URL(href).protocol)
+  } catch {
+    return false
+  }
+}
+
 /**
  * Drop markup a browser never renders - comments (including Word's
  * conditional ones), <script>/<style>/<template> blocks, elements marked
- * hidden, and every attribute but href - before tags are stripped. A plain
+ * hidden, and every attribute but an http(s) href - before tags are stripped. A plain
  * tag strip keeps their text, which hands the model words the posting's
  * reader never saw. CSS-only tricks (off-screen, zero font size) need a
  * renderer and are not caught here.
@@ -137,7 +146,7 @@ export function visibleHtml(html: string): string {
       continue
     }
     const href = attrs.find(([attr]) => attr === "href")?.[1]
-    kept.push(href === undefined ? `<${tag}>` : `<${tag} href="${href.replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}">`)
+    kept.push(href === undefined || !isWebUrl(href) ? `<${tag}>` : `<${tag} href="${href.replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}">`)
   }
   if (!hidden) kept.push(html.slice(from))
   return kept.join("")
