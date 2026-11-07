@@ -22,6 +22,8 @@ const HIDDEN_MARKUP = [
   "<span hidden>HIDDEN attribute</span>",
   '<p style="mso-hide:all">HIDDEN mso</p>',
   '<p aria-hidden="true" title="a hidden gem">Visible despite the words.</p>',
+  "<div hidden/>HIDDEN self-closed <div/>HIDDEN nested self-closed</div> HIDDEN after</div>",
+  '<div hidden title="a > b">HIDDEN quoted gt <span title="</div>">HIDDEN quoted close</span></div>',
 ].join("");
 const LEAKED = /HIDDEN|WordDocument|MsoNormal|alert/;
 const INVISIBLE_CHAR = /[\u{E0000}-\u{E007F}‮​⁦\u001B﻿]/u;

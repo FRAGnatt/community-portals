@@ -52,6 +52,10 @@ describe("named search flags require their documented values", () => {
       const params = requests[0].searchParams;
       expect(params.get("q")).toBe("backend engineer");
       expect(params.getAll("countries")).toEqual(["DE", "GB"]);
+      expect(params.getAll("regions")).toEqual(["eu"]);
+      expect(params.getAll("cities")).toEqual(["Berlin"]);
+      expect(params.getAll("seniority")).toEqual(["senior"]);
+      expect(params.getAll("category")).toEqual(["backend"]);
       expect(params.getAll("skills")).toEqual(["go", "kubernetes"]);
       expect(params.get("company_slug")).toBe("acme");
       expect(params.get("work_mode")).toBe("remote");

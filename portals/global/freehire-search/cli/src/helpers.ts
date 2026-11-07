@@ -313,35 +313,35 @@ export function visibleHtml(html: string): string {
     .replace(/<(script|style|template)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, "")
   // One pass, collecting what is kept: slicing the string per hidden element
   // would make a page full of them quadratic.
-  const open = /<([a-zA-Z][a-zA-Z0-9-]*)(\s[^>]*)?>/g
+  // Quote-aware, so a `>` or a close tag inside a quoted attribute is not markup.
+  const tags = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)((?:[\s/](?:[^>"']|"[^"]*"|'[^']*')*)?)>/g
   const kept: string[] = []
   let from = 0
   let m: RegExpExecArray | null
-  while ((m = open.exec(src)) !== null) {
-    if (!m[2] || !isHiddenTag(m[2])) continue
-    const tag = m[1].toLowerCase()
-    let end = open.lastIndex
-    if (!VOID_TAGS.has(tag) && !m[0].endsWith("/>")) {
+  while ((m = tags.exec(src)) !== null) {
+    if (m[1] || !m[3] || !isHiddenTag(m[3])) continue
+    const tag = m[2].toLowerCase()
+    let end = tags.lastIndex
+    // HTML ignores `/>` on a non-void element, so it opens one like `>` does.
+    if (!VOID_TAGS.has(tag)) {
       // Skip to the matching close tag, counting nested same-name elements. An
       // unclosed hidden element runs to the end: failing closed drops visible
       // text, failing open would leak the hidden text.
-      const same = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi")
-      same.lastIndex = end
       end = src.length
       let depth = 1
       let s: RegExpExecArray | null
-      while ((s = same.exec(src)) !== null) {
-        if (s[1]) depth--
-        else if (!s[0].endsWith("/>")) depth++
+      while ((s = tags.exec(src)) !== null) {
+        if (s[2].toLowerCase() !== tag) continue
+        depth += s[1] ? -1 : 1
         if (depth === 0) {
-          end = same.lastIndex
+          end = tags.lastIndex
           break
         }
       }
     }
     kept.push(src.slice(from, m.index))
     from = end
-    open.lastIndex = end
+    tags.lastIndex = end
   }
   kept.push(src.slice(from))
   return kept.join("")

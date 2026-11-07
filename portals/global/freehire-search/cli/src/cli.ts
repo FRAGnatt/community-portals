@@ -212,6 +212,14 @@ async function main(): Promise<number> {
     }
   }
 
+  const extra = (flags._ as string[]).slice(cmd === "detail" ? 2 : 1)
+  if (extra.length > 0) {
+    process.stderr.write(
+      JSON.stringify({ error: `unexpected argument "${extra[0]}" for '${cmd}'; see --help`, code: "BAD_ARG" }) + "\n",
+    )
+    return 1
+  }
+
   if (cmd === "search") {
     // These options take values, unlike bare --remote and --no-description.
     // Treating a present-but-empty option as unset silently broadens the query.

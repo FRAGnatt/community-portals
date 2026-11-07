@@ -5,6 +5,7 @@ import type { FreehireJob } from "../src/helpers";
 
 const originalFetch = globalThis.fetch;
 const originalStdoutWrite = process.stdout.write;
+const originalStderrWrite = process.stderr.write;
 
 function captureStdout(): { get: () => string } {
   let buf = "";
@@ -33,14 +34,13 @@ function requestedParams(mock: { url: () => string }): URLSearchParams {
   return new URL(mock.url()).searchParams;
 }
 
-function captureStderr(): { get: () => string; restore: () => void } {
+function captureStderr(): { get: () => string } {
   let buf = "";
-  const original = process.stderr.write;
   process.stderr.write = ((chunk: string | Uint8Array) => {
     buf += chunk.toString();
     return true;
   }) as typeof process.stderr.write;
-  return { get: () => buf, restore: () => (process.stderr.write = original) };
+  return { get: () => buf };
 }
 
 function job(overrides: Partial<FreehireJob> = {}): FreehireJob {
@@ -69,6 +69,7 @@ function job(overrides: Partial<FreehireJob> = {}): FreehireJob {
 afterEach(() => {
   globalThis.fetch = originalFetch;
   process.stdout.write = originalStdoutWrite;
+  process.stderr.write = originalStderrWrite;
 });
 
 const searchOpts = {
@@ -170,7 +171,6 @@ describe("runSearch (mocked fetch)", () => {
     const out = captureStdout();
 
     const code = await runSearch({ ...searchOpts, query: "backend" });
-    err.restore();
 
     expect(code).toBe(1);
     expect(out.get()).toBe("");

@@ -22,7 +22,7 @@ Verified against the live API:
 
 ## Envelope
 
-Every response is `{ "data": ..., "meta": {...}, "error": "..." }`. Lists put the
+A successful response is `{ "data": ..., "meta": {...} }`. Lists put the
 array in `data` and pagination in `meta` (`{ total, limit, offset }`); a single
 item puts the object in `data`. Errors are `{ "error": "<message>" }` with a 4xx/5xx
 status (e.g. 404 → `{ "error": "not found" }`).
@@ -68,7 +68,7 @@ Query parameters used by the skill:
 | `limit` | `--limit` / `-n` | Page size. Default 25 in the CLI. |
 | `offset` | (derived) | `offset = (page - 1) * limit`. |
 | `posted_within_days` | `--jobage` | Restrict to postings from the last N days. |
-| `regions` | `--region` | Repeatable; OR within the facet. Values: `global`, `eu`, `uk`, `north_america`, `latam`, `apac`, `mena`, `africa`, `cis`. `us` is a country (`countries`), not a region. |
+| `regions` | `--region` | Repeatable; OR within the facet. Values: `global`, `eu`, `uk`, `north_america`, `latam`, `apac`, `mena`, `africa`, `cis`, `none` (postings with no resolved region). `us` is a country (`countries`), not a region. |
 | `countries` | `--country` | Repeatable; ISO-3166 alpha-2 (lowercased). |
 | `cities` | `--city` | Repeatable; display-name city. |
 | `seniority` | `--seniority` | Repeatable; `junior`, `middle`, `senior`, `staff`, … |

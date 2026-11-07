@@ -47,9 +47,9 @@ One diagnostic is a warning instead: a `--region` value outside the documented v
 prints `{ "warning": "...", "code": "REGION_VALUE_UNKNOWN" }` to stderr after the results,
 and exits `0`, leaving stdout a valid JSON document.
 
-`search` hits the API's agent endpoint, so every JSON result already carries the
+`search` hits the API's agent endpoint, so by default every JSON result already carries the
 posting's **full** description (Markdown by default, `--description-format
-text|html` to change it). `detail` remains for looking a single posting up by
+text|html` to change it; `--no-description` sets it to `null`). `detail` remains for looking a single posting up by
 slug — including a closed one, which search does not return.
 
 ## Quick examples

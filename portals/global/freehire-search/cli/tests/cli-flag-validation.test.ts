@@ -213,3 +213,16 @@ describe("unknown flag rejection", () => {
     expect(error.error).toContain("--bogus-flag");
   });
 });
+
+describe("unexpected positional arguments", () => {
+  for (const args of [["search", "backend"], ["detail", "backend-engineer-acme-ab12cd34", "extra"]]) {
+    test(`${args.join(" ")} exits 1 with BAD_ARG before any request`, async () => {
+      const result = await runCLI(args, { FREEHIRE_API_URL: "http://127.0.0.1:9" });
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      const error = JSON.parse(result.stderr);
+      expect(error.code).toBe("BAD_ARG");
+      expect(error.error).toContain(`"${args.at(-1)}"`);
+    });
+  }
+});
