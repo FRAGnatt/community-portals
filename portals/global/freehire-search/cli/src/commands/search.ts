@@ -63,7 +63,7 @@ function buildQuery(opts: SearchOpts): URLSearchParams {
     ...Object.entries(opts.facets),
   ]
   for (const [param, values] of facets) {
-    for (const value of values) p.append(param, value)
+    for (const value of values) p.append(param, param === "regions" ? value.trim().toLowerCase() : value)
   }
   return p
 }

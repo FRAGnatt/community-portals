@@ -219,6 +219,15 @@ describe("runDetail (mocked fetch)", () => {
     expect(parsed.cities).toEqual(["Berlin"]);
   });
 
+  test("plain output keeps blank lines around the description", async () => {
+    mockFetch(200, { data: job() });
+    const out = captureStdout();
+
+    const code = await runDetail({ id: "backend-engineer-acme-ab12cd34", format: "plain" });
+    expect(code).toBe(0);
+    expect(out.get()).toContain("\n\nBuild things\n\nURL: https://boards.greenhouse.io/acme/jobs/1\nslug: backend-engineer-acme-ab12cd34\n");
+  });
+
   test("404 exits 1 with NOT_FOUND", async () => {
     mockFetch(404, { error: "not found" });
     let err = "";

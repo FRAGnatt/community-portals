@@ -7,7 +7,7 @@ export interface DetailOpts {
 
 /** A human-readable rendering of one job: header, present fields, description. */
 function renderPlain(job: JobDetailResult): string {
-  const lines = [job.title, `${job.company ?? "—"} · ${job.location ?? "—"}`]
+  const lines = [job.title, `${job.company || "—"} · ${job.location || "—"}`]
 
   const field = (label: string, value: string | null) => {
     if (value) lines.push(`${label}: ${value}`)
@@ -19,7 +19,7 @@ function renderPlain(job: JobDetailResult): string {
   field("Salary", job.salary)
   field("Skills", job.skills.length ? job.skills.join(", ") : null)
 
-  lines.push("", job.description ?? "(no description)", "", `URL: ${job.url}`, `slug: ${job.id}`)
+  lines.push("", job.description || "(no description)", "", `URL: ${job.url}`, `slug: ${job.id}`)
   return lines.join("\n")
 }
 
@@ -38,22 +38,7 @@ export async function runDetail(opts: DetailOpts): Promise<number> {
     const job = stripInvisible(toDetail(env.data))
 
     if (opts.format === "plain") {
-      const lines = [
-        job.title,
-        `${job.company || "—"} · ${job.location || "—"}`,
-        job.date ? `Posted: ${job.date.slice(0, 10)}` : "",
-        job.seniority ? `Seniority: ${job.seniority}` : "",
-        job.category ? `Category: ${job.category}` : "",
-        job.employment_type ? `Employment: ${job.employment_type}` : "",
-        job.salary ? `Salary: ${job.salary}` : "",
-        job.skills.length ? `Skills: ${job.skills.join(", ")}` : "",
-        "",
-        job.description || "(no description)",
-        "",
-        `URL: ${job.url}`,
-        `slug: ${job.id}`,
-      ].filter((l) => l !== "")
-      process.stdout.write(lines.join("\n") + "\n")
+      process.stdout.write(renderPlain(job) + "\n")
     } else {
       process.stdout.write(JSON.stringify(job, null, 2) + "\n")
     }

@@ -128,6 +128,13 @@ describe("--region outside the closed vocabulary", () => {
     expect(upperKnown.read()).toBe("")
   })
 
+  test("sends region values lowercased, including --facet regions=", async () => {
+    const stub = stubSearch(0)
+    capture("stdout")
+    await runSearch(opts({ regions: ["EU"], facets: { regions: [" North_America "] } }))
+    expect(new URL(stub.urls[0]).searchParams.getAll("regions")).toEqual(["eu", "north_america"])
+  })
+
   test("names only the values outside the vocabulary", async () => {
     stubSearch(0)
     capture("stdout")
