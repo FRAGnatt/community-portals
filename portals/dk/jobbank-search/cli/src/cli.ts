@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { createCLI } from "@bunli/core"
 import { writeError } from "./helpers.js"
 import { search } from "./commands/search.js"
