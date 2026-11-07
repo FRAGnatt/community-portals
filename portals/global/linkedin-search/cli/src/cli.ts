@@ -105,7 +105,7 @@ async function main(): Promise<number> {
 
   if (cmd === "search") {
     const location = typeof flags.location === "string" ? flags.location : undefined
-    if (!location) {
+    if (!location?.trim()) {
       process.stderr.write(
         JSON.stringify({
           error: 'the --location/-l flag is required (e.g. -l "Mumbai, Maharashtra, India", -l "Berlin, Germany", or -l "Remote")',

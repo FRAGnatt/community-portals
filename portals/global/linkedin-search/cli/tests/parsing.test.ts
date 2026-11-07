@@ -278,6 +278,7 @@ describe("normalizeId", () => {
     expect(normalizeId("https://boards.greenhouse.io/acme/jobs/4567890")).toBeNull();
     expect(normalizeId("https://jobs.lever.co/acme/1234567")).toBeNull();
     expect(normalizeId("https://example.com/jobs/view/1234567890")).toBeNull();
+    expect(normalizeId("https://jobs.lever.co/acme/urn:li:jobPosting:1234567")).toBeNull();
   });
 
   test("rejects look-alike and userinfo hosts", () => {

@@ -19,6 +19,10 @@ const HIDDEN_MARKUP = [
   '<div style="display:none">HIDDEN styled <div>HIDDEN nested</div> HIDDEN after nesting</div>',
   "<span hidden>HIDDEN attribute</span>",
   '<p style="mso-hide:all">HIDDEN mso</p>',
+  '<span title=">" hidden>HIDDEN after a quoted gt</span>',
+  '<p hidden><span title="</p>">HIDDEN after a quoted close tag</span></p>',
+  "<span hidden/>HIDDEN in a self-closed non-void</span>",
+  "<span hidden><span/>HIDDEN nested</span>HIDDEN after a nested self-close</span>",
   '<p aria-hidden="true" title="a hidden gem">Visible despite the words.</p>',
 ].join("");
 const LEAKED = /HIDDEN|WordDocument|MsoNormal|alert/;

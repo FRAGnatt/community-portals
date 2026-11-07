@@ -21,7 +21,7 @@ const LINKEDIN_HOST = /(^|\.)linkedin\.com$/i
  */
 export function normalizeId(input: string): string | null {
   const trimmed = input.trim()
-  const urn = trimmed.match(/urn:li:jobPosting:(\d+)/)
+  const urn = trimmed.match(/^urn:li:jobPosting:(\d+)$/)
   if (urn) return urn[1]
   if (/^\d{6,}$/.test(trimmed)) return trimmed
 

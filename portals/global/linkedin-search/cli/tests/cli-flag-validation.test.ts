@@ -132,6 +132,12 @@ describe("LinkedIn CLI flag validation", () => {
       expect(err.code).toBe("NO_LOCATION");
     });
 
+    test("whitespace-only --location exits 1 with NO_LOCATION", async () => {
+      const result = await runCLI(["search", "-l", "   "]);
+      expect(result.exitCode).toBe(1);
+      expect(parsedStderr(result.stderr).code).toBe("NO_LOCATION");
+    });
+
     test("all valid flags construct the requested search offline", async () => {
       const { result, requests } = await runSearchFixture([
         "search", "-l", LOCATION, "--jobage", "7", "--page", "1", "--limit", "5",

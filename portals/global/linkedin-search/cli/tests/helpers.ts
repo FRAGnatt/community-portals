@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 const CLI_PATH = join(import.meta.dir, "../src/cli.ts");
+const NO_NETWORK = join(import.meta.dir, "no-network.ts");
 
 export interface CLIResult {
   stdout: string;
@@ -10,8 +11,8 @@ export interface CLIResult {
   exitCode: number;
 }
 
-export async function runCLI(args: string[], preload?: string): Promise<CLIResult> {
-  const proc = Bun.spawn(["bun", "run", ...(preload ? ["--preload", preload] : []), CLI_PATH, ...args], {
+export async function runCLI(args: string[], preload = NO_NETWORK): Promise<CLIResult> {
+  const proc = Bun.spawn(["bun", "run", "--preload", preload, CLI_PATH, ...args], {
     stdout: "pipe",
     stderr: "pipe",
   });
