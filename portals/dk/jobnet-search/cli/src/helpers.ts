@@ -67,63 +67,79 @@ export function stripInvisible<T>(value: T): T {
 
 const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"])
 
+const RAW_TEXT_TAGS = new Set(["script", "style"])
+
+function attributes(attrs: string): Array<[string, string]> {
+  return [...attrs.matchAll(/([^\s"'=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)].map((m) => [
+    m[1].toLowerCase(),
+    m[2] ?? m[3] ?? m[4] ?? "",
+  ])
+}
+
 /** Whether an opening tag's attributes keep it from rendering: `hidden`, or an inline style that hides it. */
-function isHiddenTag(attrs: string): boolean {
-  for (const m of attrs.matchAll(/([^\s"'=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
-    const name = m[1].toLowerCase()
-    const value = m[2] ?? m[3] ?? m[4] ?? ""
-    if (name === "hidden") return true
-    if (name === "style" && /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden|mso-hide\s*:\s*all)\b/i.test(value)) {
-      return true
-    }
-  }
-  return false
+function isHiddenTag(attrs: Array<[string, string]>): boolean {
+  return attrs.some(
+    ([name, value]) =>
+      name === "hidden" ||
+      (name === "style" && /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden|mso-hide\s*:\s*all)\b/i.test(value)),
+  )
 }
 
 /**
  * Drop markup a browser never renders - comments (including Word's
- * conditional ones), <script>/<style>/<template> blocks, and elements marked
- * hidden - before tags are stripped. A plain tag strip keeps their text, which
- * hands the model words the posting's reader never saw. CSS-only tricks
- * (off-screen, zero font size) need a renderer and are not caught here.
+ * conditional ones), <script>/<style>/<template> blocks, elements marked
+ * hidden, and every attribute but href - before tags are stripped. A plain
+ * tag strip keeps their text, which hands the model words the posting's
+ * reader never saw. CSS-only tricks (off-screen, zero font size) need a
+ * renderer and are not caught here.
  */
 export function visibleHtml(html: string): string {
-  const src = html
-    .replace(/<!--[\s\S]*?(?:-->|$)/g, "")
-    .replace(/<(script|style|template)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, "")
+  // Quoted attribute values may hold `>` or a close tag; an unterminated one runs to the end, as in a browser.
+  const token = /<!--[\s\S]*?(?:-->|$)|<(\/?)([a-zA-Z][a-zA-Z0-9-]*)((?:"[^"]*(?:"|$)|'[^']*(?:'|$)|[^"'>])*)(?:>|$)/g
   // One pass, collecting what is kept: slicing the string per hidden element
   // would make a page full of them quadratic.
-  const open = /<([a-zA-Z][a-zA-Z0-9-]*)(\s[^>]*)?>/g
   const kept: string[] = []
   let from = 0
+  let hidden: string | null = null
+  let depth = 0
   let m: RegExpExecArray | null
-  while ((m = open.exec(src)) !== null) {
-    if (!m[2] || !isHiddenTag(m[2])) continue
-    const tag = m[1].toLowerCase()
-    let end = open.lastIndex
-    if (!VOID_TAGS.has(tag) && !m[0].endsWith("/>")) {
-      // Skip to the matching close tag, counting nested same-name elements. An
-      // unclosed hidden element runs to the end: failing closed drops visible
-      // text, failing open would leak the hidden text.
-      const same = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi")
-      same.lastIndex = end
-      end = src.length
-      let depth = 1
-      let s: RegExpExecArray | null
-      while ((s = same.exec(src)) !== null) {
-        if (s[1]) depth--
-        else if (!s[0].endsWith("/>")) depth++
-        if (depth === 0) {
-          end = same.lastIndex
-          break
-        }
-      }
+  while ((m = token.exec(html)) !== null) {
+    const [, close, name, rawAttrs] = m
+    const tag = name?.toLowerCase()
+    let end = token.lastIndex
+    if (tag && !close && RAW_TEXT_TAGS.has(tag)) {
+      const rawEnd = new RegExp(`</${tag}\\s*>`, "gi")
+      rawEnd.lastIndex = end
+      end = rawEnd.exec(html) ? rawEnd.lastIndex : html.length
+      token.lastIndex = end
     }
-    kept.push(src.slice(from, m.index))
+    if (hidden) {
+      // An unclosed hidden element runs to the end: failing closed drops visible text, failing open would leak.
+      if (tag === hidden && (depth += close ? -1 : 1) === 0) {
+        hidden = null
+        from = end
+      }
+      continue
+    }
+    kept.push(html.slice(from, m.index))
     from = end
-    open.lastIndex = end
+    if (!tag || RAW_TEXT_TAGS.has(tag)) continue
+    if (close) {
+      kept.push(`</${tag}>`)
+      continue
+    }
+    const attrs = attributes(rawAttrs)
+    if (tag === "template" || isHiddenTag(attrs)) {
+      if (!VOID_TAGS.has(tag)) {
+        hidden = tag
+        depth = 1
+      }
+      continue
+    }
+    const href = attrs.find(([attr]) => attr === "href")?.[1]
+    kept.push(href === undefined ? `<${tag}>` : `<${tag} href="${href.replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}">`)
   }
-  kept.push(src.slice(from))
+  if (!hidden) kept.push(html.slice(from))
   return kept.join("")
 }
 

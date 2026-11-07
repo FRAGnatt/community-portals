@@ -1,7 +1,7 @@
 import { defineCommand, option } from "@bunli/core"
 import { z } from "zod"
 import { apiFetch, normalizeJobId, writeError, stripHtml, stripInvisible, visibleHtml } from "../helpers.js"
-import type { JobAdRaw, SearchApiResponse } from "./search.js"
+import { externalAdUrl, type JobAdRaw, type SearchApiResponse } from "./search.js"
 
 export interface DetailApiResponse {
   id: string
@@ -115,7 +115,7 @@ export function mapSearchAdToDetail(raw: JobAdRaw & { jobAdUrl?: string | null; 
       deadlineDate: raw.applicationDeadline ?? null,
       availablePositions: null,
       contactPersons: [],
-      url: raw.jobAdUrl && raw.jobAdUrl.trim().length > 0 ? raw.jobAdUrl.trim() : null,
+      url: externalAdUrl(raw),
       urlText: null,
       isApplicationDeadlineASAP: raw.applicationDeadlineStatus ? raw.applicationDeadlineStatus === "NotDisclosed" : null,
     },
@@ -193,8 +193,9 @@ export const detail = defineCommand({
           if (match) {
             data = prepareDetail(mapSearchAdToDetail(match))
           }
-        } catch {
-          // If fallback search fails, fall through to NOT_FOUND
+        } catch (fallbackErr) {
+          writeError(fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr), "API_ERROR")
+          process.exit(1)
         }
 
         if (!data) {

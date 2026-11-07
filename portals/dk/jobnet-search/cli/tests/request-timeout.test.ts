@@ -2,22 +2,28 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { apiFetch } from "../src/helpers";
 
 // A stalled upstream connection (accepted socket, no response) would otherwise
-// hang the CLI forever - fetch has no default timeout. Assert every request
-// carries an AbortSignal timeout. This fails on the pre-fix code (no signal).
+// hang the CLI forever - fetch has no default timeout. The stub fetch never
+// answers on its own; only the request's signal aborting can end the call.
 const originalFetch = globalThis.fetch;
+const originalTimeout = AbortSignal.timeout;
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  AbortSignal.timeout = originalTimeout;
 });
 
 describe("apiFetch request timeout", () => {
-  test("passes an AbortSignal timeout to fetch", async () => {
-    let init: RequestInit | undefined;
-    globalThis.fetch = (async (_url: string | URL | Request, i?: RequestInit) => {
-      init = i;
-      return new Response("{}", { status: 200 });
-    }) as unknown as typeof fetch;
+  test("aborts a stalled request after 15 seconds", async () => {
+    const requested: number[] = [];
+    AbortSignal.timeout = ((ms: number) => {
+      requested.push(ms);
+      return originalTimeout.call(AbortSignal, 1);
+    }) as typeof AbortSignal.timeout;
+    globalThis.fetch = ((_url: string | URL | Request, init?: RequestInit) =>
+      new Promise((_, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+      })) as unknown as typeof fetch;
 
-    await apiFetch("/search");
-    expect(init?.signal).toBeInstanceOf(AbortSignal);
+    await expect(apiFetch("/search")).rejects.toMatchObject({ name: "TimeoutError" });
+    expect(requested).toEqual([15000]);
   });
 });

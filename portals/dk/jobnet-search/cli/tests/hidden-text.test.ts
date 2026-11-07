@@ -20,6 +20,11 @@ const HIDDEN_MARKUP = [
   "<span hidden>HIDDEN attribute</span>",
   '<p style="mso-hide:all">HIDDEN mso</p>',
   '<p aria-hidden="true" title="a hidden gem">Visible despite the words.</p>',
+  '<span title="a>b" hidden>HIDDEN behind a quoted gt</span>',
+  '<div hidden><span title="</div>">HIDDEN behind a quoted close tag</span></div>',
+  "<div hidden/>HIDDEN after a self-closed div</div>",
+  '<div hidden><script>x = "</div>"</script>HIDDEN after a script</div>',
+  '<p data-note="HIDDEN data attribute" class="MsoNormal">Visible paragraph.</p>',
 ].join("")
 const LEAKED = /HIDDEN|WordDocument|MsoNormal|alert/
 const INVISIBLE_CHAR = /[\u{E0000}-\u{E007F}‮​⁦\u001B﻿]/u
@@ -39,19 +44,18 @@ async function hostileDetail(): Promise<Record<string, unknown>> {
   }
 }
 
-async function detail(format: "json" | "plain"): Promise<string> {
-  const fixture = await hostileDetail()
+async function run(apiPath: string, fixture: unknown, args: string[]): Promise<string> {
   const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => Response.json(fixture) })
   const dir = mkdtempSync(join(tmpdir(), "jobnet-hidden-"))
   const preload = join(dir, "fetch.ts")
-  // The documented CLI in a fresh process; only this posting is served.
+  // The documented CLI in a fresh process; only this fixture is served.
   writeFileSync(preload, `
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (input, init) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       if (url.protocol === "data:") return originalFetch(input, init);
-      if (url.origin !== "https://jobnet.dk" || url.pathname !== "/bff/FindJob/JobAdDetails/${ID}") {
-        throw new Error("Unexpected detail fixture request");
+      if (url.origin !== "https://jobnet.dk" || url.pathname !== ${JSON.stringify(apiPath)}) {
+        throw new Error("Unexpected fixture request");
       }
       return originalFetch(${JSON.stringify(server.url.origin)} + url.pathname + url.search, init);
     };
@@ -59,7 +63,7 @@ async function detail(format: "json" | "plain"): Promise<string> {
   try {
     const proc = Bun.spawn([
       process.execPath, "run", "--preload", preload,
-      join(import.meta.dir, "../src/cli.ts"), "detail", ID, "--format", format,
+      join(import.meta.dir, "../src/cli.ts"), ...args,
     ], { stdout: "pipe", stderr: "pipe" })
     const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited])
     expect(exitCode).toBe(0)
@@ -68,6 +72,10 @@ async function detail(format: "json" | "plain"): Promise<string> {
     server.stop(true)
     rmSync(dir, { recursive: true, force: true })
   }
+}
+
+async function detail(format: "json" | "plain"): Promise<string> {
+  return run(`/bff/FindJob/JobAdDetails/${ID}`, await hostileDetail(), ["detail", ID, "--format", format])
 }
 
 describe("hidden text from a job ad never reaches the output", () => {
@@ -80,6 +88,7 @@ describe("hidden text from a job ad never reaches the output", () => {
     expect(job.body).toContain("<p>Vi søger en kollega.</p>")
     expect(job.body).toContain("Visible despite the words.")
     expect(job.body).toContain("<p>Søg senest 5. april.</p>")
+    expect(job.body).toContain("<p>Visible paragraph.</p>")
   })
 
   test("detail plain output is cleaned the same way", async () => {
@@ -114,4 +123,23 @@ describe("hidden text from a job ad never reaches the output", () => {
     expect(output.results[0].title).toBe("Udvikler")
     expect(output.results[0].company).toBe("Acme")
   })
+
+  for (const format of ["json", "table", "plain"]) {
+    test(`suggestions ${format} output strips invisible characters`, async () => {
+      const stdout = await run("/bff/FindJob/GetTypeaheadSuggestions", [`udvikler${INVISIBLE}`], ["suggestions", "--query", "udv", "--format", format])
+      expect(stdout).not.toMatch(INVISIBLE_CHAR)
+      expect(stdout).toContain("udvikler")
+    })
+
+    test(`occupations ${format} output strips invisible characters`, async () => {
+      const occupation = {
+        conceptUriDa: `http://data.star.dk/esco/occupation/1${INVISIBLE}`,
+        preferredLabelDa: `Sygeplejerske${INVISIBLE}`,
+        aliases: [{ aliasIdentifier: "1", conceptUriDa: "x", alternativeLabelDa: `Sygeplejer${INVISIBLE}` }],
+      }
+      const stdout = await run("/bff/OccupationSearch", [occupation], ["occupations", "--search-string", "syg", "--format", format])
+      expect(stdout).not.toMatch(INVISIBLE_CHAR)
+      expect(stdout).toContain("Sygeplejerske")
+    })
+  }
 })

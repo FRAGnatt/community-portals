@@ -131,6 +131,10 @@ describe("mapSearchAdToDetail (Issue #432 external ad fallback)", () => {
 
     expect(detail.application.isApplicationDeadlineASAP).toBe(true)
   })
+
+  test("drops a non-http(s) jobAdUrl", () => {
+    expect(mapSearchAdToDetail({ ...sampleAd, jobAdUrl: "javascript:alert(1)" }).application.url).toBeNull()
+  })
 })
 
 describe("detail command handler external ad fallback path", () => {
@@ -228,6 +232,25 @@ describe("detail command handler external ad fallback path", () => {
       error: "Job ad not found",
       code: "NOT_FOUND",
     })
+  })
+
+  test("reports API_ERROR, not NOT_FOUND, when the fallback search itself fails", async () => {
+    throwingExit()
+    const out = captureOutput()
+
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+      if (url.includes("/JobAdDetails/ext-123")) {
+        return new Response("", { status: 404, statusText: "Not Found" })
+      }
+      throw new TypeError("fetch failed")
+    }) as unknown as typeof fetch
+
+    const result = await runDetail("ext-123")
+
+    expect(result.exit).toBe(1)
+    expect(out.stdout.join("")).toBe("")
+    expect(JSON.parse(out.stderr.join("").trim())).toEqual({ error: "fetch failed", code: "API_ERROR" })
   })
 
   test("formats plain output cleanly without stderr note on 404 fallback", async () => {

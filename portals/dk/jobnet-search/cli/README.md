@@ -27,7 +27,7 @@ bun install
 | `suggestions` | Typeahead suggestions for job title / keyword search |
 
 All commands accept `--format json|table|plain` (default: `json`).
-All errors are written to **stderr** as `{ "error": "...", "code": "..." }` and the process exits with code `1`.
+Errors are written to **stderr** as JSON and the process exits with code `1`. API, argument and missing-required errors use `{ "error": "...", "code": "..." }`; invalid flag values are rejected by Bunli as `{ "ok": false, "error": { "kind": "validation", "message": "...", ... } }`.
 
 ---
 
@@ -163,7 +163,7 @@ bun run src/cli.ts search \
 
 > **Note**: The `description` field (raw HTML) is intentionally omitted from `search` results for brevity. Use `detail` to retrieve the full job description.
 
-> **Note**: Every result also carries the cross-portal contract fields `company`, `location`, `date`, `deadline`, `url`, and `applyUrl` - derived respectively from `hiringOrgName`, `postalDistrictName`/`municipality`, and the canonical portal URL `https://jobnet.dk/find-job/{jobAdId}`. `url` is always canonical on jobnet.dk for all ads so that deduplication, health checks, and `/apply` host routing identify the portal correctly. External ads carry their employer ATS destination in `applyUrl` (and `jobAdUrl`), while internal ads set `applyUrl` to `null`. `/scrape` Step 2 expects search output to include title, company, location, date, and URL, and dates follow the `YYYY-MM-DD` convention of the other portal CLIs. The API's `1900-01-01` deadline sentinel (deadline not disclosed) maps to `null`. The native fields above are preserved unchanged.
+> **Note**: Every result also carries the cross-portal contract fields `company`, `location`, `date`, `deadline`, `url`, and `applyUrl` - derived respectively from `hiringOrgName`, `postalDistrictName`/`municipality`, and the canonical portal URL `https://jobnet.dk/find-job/{jobAdId}`. `url` is always canonical on jobnet.dk for all ads so that deduplication, health checks, and `/apply` host routing identify the portal correctly. External ads carry their employer ATS destination in `applyUrl` (and `jobAdUrl`) when it is an absolute http(s) URL; internal ads, and external ads with a missing or non-http(s) destination, set `applyUrl` to `null`. `/scrape` Step 2 expects search output to include title, company, location, date, and URL, and dates follow the `YYYY-MM-DD` convention of the other portal CLIs. The API's `1900-01-01` deadline sentinel (deadline not disclosed) maps to `null`. The native fields above are preserved unchanged.
 
 > **Note**: `resultsPerPage` and `pageNumber` must always be provided — omitting them while also providing `searchString` causes the API to return error 1014 ("Fejl i formatering af inputs").
 
@@ -251,7 +251,7 @@ bun run src/cli.ts detail 9ef43bce-d82b-4ea1-a098-7ff6520f99be --format plain
 }
 ```
 
-> **Note**: `body` contains raw HTML. In `--format plain` output the CLI strips HTML tags to produce readable text.
+> **Note**: `body` contains the ad's HTML, minus markup a browser never renders (comments, scripts, styles, hidden elements) and every attribute except `href`. In `--format plain` output the CLI strips HTML tags to produce readable text.
 
 > **Note**: The optional `source` field indicates whether detail was synthesized from the search endpoint fallback (`"search-fallback"`) when `JobAdDetails` returned 404 for an external ad. Direct responses omit `source`. When present, plain and table formats render a `Source: search-fallback (detail unavailable, synthesised from search)` line.
 
@@ -355,6 +355,12 @@ All errors are written to **stderr** in JSON format and exit with code `1`:
 { "error": "--search-string is required", "code": "MISSING_REQUIRED" }
 ```
 
+Invalid flag values (for example `--per-page 0`) fail Bunli's schema validation before the command runs, in Bunli's own shape:
+
+```json
+{ "ok": false, "error": { "kind": "validation", "name": "BunliValidationError", "message": "Invalid option 'per-page': Number must be greater than or equal to 1", "command": "occupations", "option": "per-page" } }
+```
+
 ---
 
 ## URL construction
@@ -369,7 +375,8 @@ The legacy `https://jobnet.dk/job/{jobAdId}` route redirects anonymous visitors 
 MitID login flow, so it is never emitted. External ads (`isExternal: true`) return 404 in a browser
 on `/find-job/` and hit the login wall on `/job/`. The search command keeps `url` canonical
 as `https://jobnet.dk/find-job/{jobAdId}` for all ads to preserve portal identity and route
-to `jobnet detail`, while providing the external destination in `applyUrl` (and `jobAdUrl`).
+to `jobnet detail`, while providing the external destination in `applyUrl` (and `jobAdUrl`) when it is an
+absolute http(s) URL, and `null` otherwise.
 
 Company logo images (prefix relative logoUrl from API):
 
@@ -387,5 +394,5 @@ Example: `https://jobnet.dk/bff/SharedComponents/JobAdCard/CompanyLogo/ByJobAdId
 - The `x-csrf: 1` header must be sent with every request.
 - Pagination is 1-indexed (`--page 1` is the first page).
 - `search` results intentionally omit the HTML `description` field — use `detail` to fetch it.
-- `body` in `detail` responses is raw HTML; use `--format plain` to get stripped text.
+- `body` in `detail` responses is HTML (hidden markup and non-`href` attributes removed); use `--format plain` to get stripped text.
 - The `occupations` command helps discover ESCO occupation URIs to pass to `search --occupation` for narrowing search results.
