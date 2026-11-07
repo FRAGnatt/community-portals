@@ -145,7 +145,7 @@ export function stripInvisible<T>(value: T): T {
 // Quoted attribute values may hold `>` or a close-tag string; neither ends the tag.
 const ATTRS = String.raw`(?:[^>"']|"[^"]*"|'[^']*')*`
 
-const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"])
+const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"])
 
 /** Whether an opening tag's attributes keep it from rendering: `hidden`, or an inline style that hides it. */
 function isHiddenTag(attrs: string): boolean {
