@@ -109,7 +109,7 @@ CSS selectors for job cards: `div.PaidJob, div.jix_robotjob`
 
 Each card contains:
 - Title: `h4 a` (text + href)
-- Company: first `a` link text
+- Company: `.jix-toolbar-top__company a` (text + href)
 - Location: div after h4 (clean by removing "Se rejsetid")
 - Posted date: `time` element (format: DD-MM-YYYY)
 - Description: `p` elements

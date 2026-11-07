@@ -24,7 +24,7 @@ bun install
 | `search` | Search for job listings |
 | `detail` | Fetch full detail for a single job listing |
 
-All commands accept `--format json|table|plain` (default: `json`).
+`search` accepts `--format json|table|plain`; `detail` accepts `--format json|plain` (default: `json`).
 All errors are written to **stderr** as `{ "error": "...", "code": "..." }` and the process exits with code `1`.
 
 ---

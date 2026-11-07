@@ -112,6 +112,17 @@ describe("parseDetailPage - jobindex-native (jd-*) shape", () => {
     expect(job.hours).toBe("Fuldtid");
     expect(job.description).toContain("Camunda, AWS og automatisering");
   });
+
+  test("keeps description text after a nested div", () => {
+    const nested = NATIVE_PAGE.replace(
+      '<p class="appetizer">',
+      '<div class="ad-block"><p>Indlejret afsnit.</p></div><p class="appetizer">',
+    );
+    const parsed = parseDetailPage(nested, `${JOBANNONCE_URL}h1690934`, "h1690934");
+    expect(parsed.description).toContain("Indlejret afsnit.");
+    expect(parsed.description).toContain("Camunda, AWS og automatisering");
+    expect(parsed.description).not.toContain("Fuldtid");
+  });
 });
 
 describe("parseDetailPage - external ATS passthrough shape", () => {

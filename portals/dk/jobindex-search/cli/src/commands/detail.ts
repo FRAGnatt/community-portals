@@ -1,6 +1,6 @@
 import { defineCommand, option } from "@bunli/core"
 import { z } from "zod"
-import { htmlFetch, stripInvisible, visibleHtml, writeError } from "../helpers.js"
+import { extractDivContent, htmlFetch, stripInvisible, visibleHtml, writeError } from "../helpers.js"
 
 const BASE_URL = "https://www.jobindex.dk"
 
@@ -200,9 +200,9 @@ export function parseDetailPage(html: string, url: string, id: string): DetailRe
     deadline = toIsoDate(jdBlockValue(html, "jd-deadline"))
     employmentType = jdBlockValue(html, "jd-type")
     hours = jdBlockValue(html, "jd-workhours")
-    const desc = visibleHtml(html).match(/class="jd-description"[^>]*>([\s\S]*?)<\/div>/i)
+    const desc = extractDivContent(visibleHtml(html), "jd-description")
     description = desc
-      ? decodeHtmlEntities(stripTags(desc[1])).replace(/\s+/g, " ").trim() || null
+      ? decodeHtmlEntities(stripTags(desc)).replace(/\s+/g, " ").trim() || null
       : null
   } else {
     // hr-manager-style widget: a rowheader label followed by the value span.
