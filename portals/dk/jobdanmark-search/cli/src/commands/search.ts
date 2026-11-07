@@ -1,6 +1,6 @@
 import { defineCommand, option } from "@bunli/core"
 import { z } from "zod"
-import { apiPost, writeError, stripInvisible, BASE_URL } from "../helpers.js"
+import { apiPost, writeError, stripInvisible, normalizeSlug, BASE_URL } from "../helpers.js"
 
 export interface ApiSearchItem {
   title: string
@@ -40,13 +40,13 @@ export function toContractDate(value: string | null): string | null {
 }
 
 // Live companyAddress values put the city after the postcode either as
-// "Lautruphoej 2, 2750 Ballerup" or "2670, Greve". The comma fallback
-// requires a non-digit after the comma so a 4-digit street number
-// ("Vejlevej 1234, 7100 Vejle") never wins over the real postcode.
+// "Lautruphoej 2, 2750 Ballerup" or "2670, Greve". The greedy prefix picks the
+// last postcode, so a 4-digit street number ("Vejlevej 1234 7100 Vejle") never
+// wins over the real one.
 export function extractCity(address: string | null): string | null {
   if (!address) return null
   const city =
-    address.match(/\d{4}\s+(.+)$/)?.[1] ?? address.match(/\d{4}\s*,\s*([^\d,].*)$/)?.[1]
+    address.match(/^.*\d{4}\s+(.+)$/)?.[1] ?? address.match(/^.*\d{4}\s*,\s*([^\d,].*)$/)?.[1]
   const trimmed = city?.trim()
   return trimmed ? trimmed : null
 }
@@ -56,8 +56,7 @@ export function normalizeItem(item: ApiSearchItem): Record<string, unknown> {
   const fullUrl = relativeUrl.startsWith("http")
     ? relativeUrl
     : `${BASE_URL}${relativeUrl}`
-  // Extract slug from url path: /job/<slug>
-  const slug = relativeUrl.replace(/^\/job\//, "")
+  const slug = normalizeSlug(relativeUrl) ?? relativeUrl
 
   // Presentation-only keys (coverImage, companyLogo, companyLogoSvgMarkup,
   // overlayColor, silhouetteLogo) are dropped: they were ~40% of a live

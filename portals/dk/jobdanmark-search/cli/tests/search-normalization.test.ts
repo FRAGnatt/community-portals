@@ -74,6 +74,26 @@ describe("Jobdanmark search normalization", () => {
     expect(result.location).toBe("Vejle");
   });
 
+  test("does not mistake a 4-digit street number for the postcode without a comma", () => {
+    const result = normalizeItem({
+      ...item(),
+      companyAddress: "Vejlevej 1234 7100 Vejle",
+    });
+
+    expect(result.location).toBe("Vejle");
+  });
+
+  test("extracts the slug from an absolute job URL", () => {
+    const result = normalizeItem({
+      ...item(),
+      url: "https://jobdanmark.dk/job/softwareudvikler-til-statens-it",
+    });
+
+    expect(result.slug).toBe("softwareudvikler-til-statens-it");
+    expect(result.id).toBe("softwareudvikler-til-statens-it");
+    expect(result.url).toBe("https://jobdanmark.dk/job/softwareudvikler-til-statens-it");
+  });
+
   test("survives a null companyAddress from the API", () => {
     const result = normalizeItem({
       ...item(),
