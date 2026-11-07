@@ -283,7 +283,7 @@ function outputPlain(results: JobAdResult[]): void {
     console.log(`employer: ${r.hiringOrgName}`)
     console.log(`occupation: ${r.occupation ?? "-"}`)
     console.log(`municipality: ${r.municipality ?? "-"}`)
-    console.log(`published: ${r.publicationDate}`)
+    console.log(`published: ${r.publicationDate ?? "-"}`)
     console.log(`deadline: ${r.applicationDeadline ?? "-"}`)
     console.log("")
   }

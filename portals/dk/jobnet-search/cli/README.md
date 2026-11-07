@@ -150,6 +150,7 @@ bun run src/cli.ts search \
       "conceptUriDa": "http://data.star.dk/esco/occupation/426e017f-ebe5-4bea-b1eb-7d2d5ab3c6db",
       "isSeen": false,
       "isFavorite": false,
+      "id": "9ef43bce-d82b-4ea1-a098-7ff6520f99be",
       "company": "Region Midtjylland",
       "location": "Viborg",
       "date": "2026-03-13",
@@ -163,7 +164,7 @@ bun run src/cli.ts search \
 
 > **Note**: The `description` field (raw HTML) is intentionally omitted from `search` results for brevity. Use `detail` to retrieve the full job description.
 
-> **Note**: Every result also carries the cross-portal contract fields `company`, `location`, `date`, `deadline`, `url`, and `applyUrl` - derived respectively from `hiringOrgName`, `postalDistrictName`/`municipality`, and the canonical portal URL `https://jobnet.dk/find-job/{jobAdId}`. `url` is always canonical on jobnet.dk for all ads so that deduplication, health checks, and `/apply` host routing identify the portal correctly. External ads carry their employer ATS destination in `applyUrl` (and `jobAdUrl`) when it is an absolute http(s) URL; internal ads, and external ads with a missing or non-http(s) destination, set `applyUrl` to `null`. `/scrape` Step 2 expects search output to include title, company, location, date, and URL, and dates follow the `YYYY-MM-DD` convention of the other portal CLIs. The API's `1900-01-01` deadline sentinel (deadline not disclosed) maps to `null`. The native fields above are preserved unchanged.
+> **Note**: Every result also carries the cross-portal contract fields `id`, `company`, `location`, `date`, `deadline`, `url`, and `applyUrl` - derived respectively from `jobAdId`, `hiringOrgName`, `postalDistrictName`/`municipality`, and the canonical portal URL `https://jobnet.dk/find-job/{jobAdId}`. `url` is always canonical on jobnet.dk for all ads so that deduplication, health checks, and `/apply` host routing identify the portal correctly. External ads carry their employer ATS destination in `applyUrl` (and `jobAdUrl`) when it is an absolute http(s) URL; internal ads, and external ads with a missing or non-http(s) destination, set `applyUrl` to `null`. `/scrape` Step 2 expects search output to include title, company, location, date, and URL, and dates follow the `YYYY-MM-DD` convention of the other portal CLIs. The API's `1900-01-01` deadline sentinel (deadline not disclosed) maps to `null`. The native fields above are preserved unchanged.
 
 > **Note**: `resultsPerPage` and `pageNumber` must always be provided — omitting them while also providing `searchString` causes the API to return error 1014 ("Fejl i formatering af inputs").
 
