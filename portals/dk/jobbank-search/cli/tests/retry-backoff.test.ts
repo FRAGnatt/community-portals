@@ -7,8 +7,8 @@ import { fetchWithUA } from "../src/helpers";
 // 500ms -> 5s backoff schedule.
 //
 // fetchWithUA deliberately RETURNS non-retry statuses instead of throwing -
-// callers own 4xx handling (e.g. rssFetch's Cloudflare 403 message). The 4xx
-// test pins that contract.
+// callers own 4xx handling, except a Cloudflare block, which fails fast with
+// the WebSearch-fallback message. The 4xx test pins that contract.
 
 const originalFetch = globalThis.fetch;
 const originalSetTimeout = globalThis.setTimeout;
@@ -44,6 +44,16 @@ describe("fetchWithUA retry/backoff", () => {
     const response = await fetchWithUA("https://jobbank.dk/x");
     expect(response.status).toBe(200);
     expect(state.calls).toBe(2);
+  });
+
+  test("stops at a Cloudflare 429 block instead of retrying it", async () => {
+    instantTimers();
+    const state = stubFetch([
+      () => new Response("<html><title>Just a moment...</title></html>", { status: 429 }),
+    ]);
+
+    await expect(fetchWithUA("https://jobbank.dk/x")).rejects.toThrow(/Cloudflare bot protection/);
+    expect(state.calls).toBe(1);
   });
 
   test("returns a plain 4xx to the caller without retrying", async () => {

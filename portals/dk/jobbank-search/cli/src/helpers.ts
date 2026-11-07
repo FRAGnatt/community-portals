@@ -16,6 +16,13 @@ export async function fetchWithUA(url: string): Promise<Response> {
       headers: { "User-Agent": USER_AGENT },
       signal: AbortSignal.timeout(15000),
     })
+    // Cloudflare answers a block with 403 or 429; retrying only prolongs it.
+    const blockable = response.status === 403 || response.status === 429
+    if (blockable && /just a moment|cloudflare|cf-chl/i.test(await response.clone().text())) {
+      throw new Error(
+        "Jobbank is blocking automated requests with Cloudflare bot protection. Skip this portal or use the WebSearch fallback."
+      )
+    }
     if (response.status === 429 || response.status >= 500) {
       if (attempt === maxRetries) {
         throw new Error(`Request failed: ${response.status} ${response.statusText}`)
@@ -90,12 +97,6 @@ export async function rssFetch(params: Record<string, string | string[]>): Promi
   const url = `${BASE_URL}/job/rss?${searchParams.toString()}`
   const response = await fetchWithUA(url)
   if (!response.ok) {
-    const body = await response.clone().text()
-    if (response.status === 403 && /just a moment|cloudflare|cf-chl/i.test(body)) {
-      throw new Error(
-        "Jobbank is blocking automated requests with Cloudflare bot protection. Skip this portal or use the WebSearch fallback."
-      )
-    }
     throw new Error(`Failed to fetch RSS feed: ${response.status} ${response.statusText}`)
   }
   const xml = await response.text()
@@ -232,7 +233,7 @@ export function visibleHtml(html: string): string {
     .replace(/<(script|style|template)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, "")
   // One pass, collecting what is kept: slicing the string per hidden element
   // would make a page full of them quadratic.
-  const open = /<([a-zA-Z][a-zA-Z0-9-]*)(\s[^>]*)?>/g
+  const open = /<([a-zA-Z][a-zA-Z0-9-]*)(\s(?:[^>"']|"[^"]*"|'[^']*')*)?>/g
   const kept: string[] = []
   let from = 0
   let m: RegExpExecArray | null
@@ -240,20 +241,21 @@ export function visibleHtml(html: string): string {
     if (!m[2] || !isHiddenTag(m[2])) continue
     const tag = m[1].toLowerCase()
     let end = open.lastIndex
-    if (!VOID_TAGS.has(tag) && !m[0].endsWith("/>")) {
-      // Skip to the matching close tag, counting nested same-name elements. An
-      // unclosed hidden element runs to the end: failing closed drops visible
-      // text, failing open would leak the hidden text.
-      const same = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi")
-      same.lastIndex = end
+    if (!VOID_TAGS.has(tag)) {
+      // Skip to the matching close tag, counting nested same-name elements; HTML
+      // ignores "/>" on a non-void tag. Every tag is matched whole so a quoted
+      // attribute cannot fake a close tag. An unclosed hidden element runs to the
+      // end: failing closed drops visible text, failing open would leak it.
+      const tags = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)(?:[^>"']|"[^"]*"|'[^']*')*>/g
+      tags.lastIndex = end
       end = src.length
       let depth = 1
       let s: RegExpExecArray | null
-      while ((s = same.exec(src)) !== null) {
-        if (s[1]) depth--
-        else if (!s[0].endsWith("/>")) depth++
+      while ((s = tags.exec(src)) !== null) {
+        if (s[2].toLowerCase() !== tag) continue
+        depth += s[1] ? -1 : 1
         if (depth === 0) {
-          end = same.lastIndex
+          end = tags.lastIndex
           break
         }
       }

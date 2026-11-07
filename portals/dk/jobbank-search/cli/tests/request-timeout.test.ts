@@ -1,23 +1,28 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { fetchWithUA } from "../src/helpers";
 
 // A stalled upstream connection (accepted socket, no response) would otherwise
-// hang the CLI forever - fetch has no default timeout. Assert the request
-// wrapper carries an AbortSignal timeout. Fails on the pre-fix code (no signal).
+// hang the CLI forever - fetch has no default timeout.
 const originalFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
 describe("fetchWithUA request timeout", () => {
-  test("passes an AbortSignal timeout to fetch", async () => {
+  test("passes fetch a signal that times out after 15 seconds", async () => {
+    const timeout = spyOn(AbortSignal, "timeout");
     let init: RequestInit | undefined;
     globalThis.fetch = (async (_url: string | URL | Request, i?: RequestInit) => {
       init = i;
       return new Response("<rss></rss>", { status: 200 });
     }) as unknown as typeof fetch;
 
-    await fetchWithUA("https://jobbank.dk/job/rss");
-    expect(init?.signal).toBeInstanceOf(AbortSignal);
+    try {
+      await fetchWithUA("https://jobbank.dk/job/rss");
+      expect(timeout).toHaveBeenCalledWith(15000);
+      expect(init?.signal).toBe(timeout.mock.results[0].value as AbortSignal);
+    } finally {
+      timeout.mockRestore();
+    }
   });
 });

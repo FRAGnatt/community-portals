@@ -6,7 +6,7 @@ CLI for [Akademikernes Jobbank](https://jobbank.dk) — Denmark's job portal for
 - **RSS feed**: `https://jobbank.dk/job/rss?{params}` — 100 items max, all search filters work
 - **Job detail**: `https://jobbank.dk/job/{id}/` — JSON-LD (`Schema.org JobPosting`) embedded in page HTML
 
-**Authentication**: None required. A browser User-Agent header is sent, but Jobbank may still block automated requests with Cloudflare bot protection. In that case the CLI exits with a clear error and callers should use a WebSearch fallback rather than retrying.
+**Authentication**: None required. A `jobbank-cli` User-Agent header is sent, and Jobbank may still block automated requests with Cloudflare bot protection. In that case the CLI exits with a clear error and callers should use a WebSearch fallback rather than retrying.
 **Format**: RSS XML (search), HTML with embedded JSON-LD (detail).
 
 ---
@@ -27,7 +27,7 @@ bun install
 | `search` | Search job listings via RSS feed |
 | `detail` | Full detail for a single job posting |
 
-All commands accept `--format json|table|plain` (default: `json`).
+`search` accepts `--format json|table|plain`; `detail` accepts `--format json|plain` (default: `json`).
 All errors are written to **stderr** as `{ "error": "...", "code": "..." }` and the process exits with code `1`.
 
 ---
@@ -219,7 +219,7 @@ The CLI fetches the RSS feed and parses each `<item>` as follows:
 - **title**: from `<title>` (CDATA)
 - **description**, **company**, **location**, **jobType**, **deadline**: parsed from the `<description>` field, which has the format: `"JobType hos Company, Location (Ansøgningsfrist: DD.MM.YYYY)"` or `"JobType hos Company, Location (Ansøgningsfrist: løbende)"`
 - **url**: from `<link>`
-- **posted**: from `<pubDate>`, normalized to ISO 8601
+- **posted**: from `<pubDate>`, normalized to ISO 8601 in UTC
 
 ### Example
 
@@ -246,8 +246,8 @@ bun run src/cli.ts search --education 24 --suitable-for 2 --since 2026-03-01
       "jobType": "Fuldtidsjob",
       "description": "Fuldtidsjob hos Novo Nordisk, Bagsværd (Ansøgningsfrist: 12.04.2026)",
       "url": "https://jobbank.dk/job/1234567/novo-nordisk/senior-data-scientist",
-      "posted": "2026-03-02T00:00:00+01:00",
-      "date": "2026-03-02",
+      "posted": "2026-03-01T23:00:00.000Z",
+      "date": "2026-03-01",
       "deadline": "2026-04-12"
     }
   ]
@@ -355,10 +355,10 @@ All errors are written to **stderr** in JSON format and exit with code `1`:
 
 ### User-Agent
 
-All HTTP requests include a browser User-Agent header:
+All HTTP requests include this User-Agent header:
 
 ```
-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
+Mozilla/5.0 (compatible; jobbank-cli/1.0)
 ```
 
 This is not guaranteed to bypass Cloudflare bot protection. If Jobbank returns a Cloudflare challenge page, the CLI reports that condition and callers should skip the portal or use a WebSearch fallback.

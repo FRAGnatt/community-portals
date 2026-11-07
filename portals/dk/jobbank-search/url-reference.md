@@ -11,7 +11,7 @@ https://jobbank.dk/job/
 ## Full URL Pattern
 
 ```
-https://jobbank.dk/job/?key={search}&antikey={exclude}&cvtype={type_id}&udd={edu_id}&amt={location_id}&erf={workarea_id}&branche={industry_id}&andet={suitability_id}&virk={company}&fjernarbejde={remote}&oprettet={YYYY-MM-DD}&page={num}
+https://jobbank.dk/job/?key={search}&antikey={exclude}&cvtype={type_id}&udd={edu_id}&amt={location_id}&erf={workarea_id}&branche={industry_id}&andet={suitability_id}&virk={company_id}&fjernarbejde={remote}&oprettet={YYYY-MM-DD}&page={num}
 ```
 
 **Multiple values:** Repeat the parameter name
@@ -31,7 +31,7 @@ cvtype=3&cvtype=13&amt=2&amt=3
 | `erf` | Work area ID | Numeric ID (see table below) |
 | `branche` | Industry ID | Numeric ID (see table below) |
 | `andet` | Suitability ID | Numeric ID (see table below) |
-| `virk` | Company name | URL-encoded string |
+| `virk` | Company ID | Numeric ID |
 | `fjernarbejde` | Remote work | `helt` (fully) or `delvist` (partially) |
 | `oprettet` | Posted since date | `YYYY-MM-DD` format |
 | `page` | Page number | Integer (1-indexed) |
@@ -307,7 +307,7 @@ https://jobbank.dk/job/?key=python&amt=8&page=2
 ### Specific Company Search (Novo Nordisk)
 
 ```
-https://jobbank.dk/job/?virk=novo+nordisk
+https://jobbank.dk/job/?key=novo+nordisk
 ```
 
 ### Ph.D. and Postdoc Positions in Natural Sciences
@@ -318,7 +318,7 @@ https://jobbank.dk/job/?cvtype=12&udd=30
 
 ## Notes
 
-- **URL encoding:** Use `+` or `%20` for spaces in text parameters (`key`, `antikey`, `virk`)
+- **URL encoding:** Use `+` or `%20` for spaces in text parameters (`key`, `antikey`)
 - **Multiple filters:** Repeat parameter names for multiple values in same category
 - **Date format:** Use ISO format `YYYY-MM-DD` for `oprettet` parameter
 - **Remote work:** Only two values: `helt` (fully) or `delvist` (partially)
