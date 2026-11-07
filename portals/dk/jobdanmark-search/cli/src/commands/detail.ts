@@ -112,7 +112,11 @@ function isJobPosting(value: unknown): value is JsonLdJobPosting {
   return Boolean(value && typeof value === "object" && (value as JsonLdJobPosting)["@type"] === "JobPosting")
 }
 
-function fromJsonLd(jobPosting: JsonLdJobPosting, slug: string, url: string): DetailResult {
+function findApplyUrl(root: ReturnType<typeof parse>): string | null {
+  return normalizeUrl(root.querySelector("a.action.primary")?.getAttribute("href"))
+}
+
+function fromJsonLd(jobPosting: JsonLdJobPosting, slug: string, url: string, root: ReturnType<typeof parse>): DetailResult {
   const hiringOrg = jobPosting.hiringOrganization
   const address = jobPosting.jobLocation?.address
 
@@ -141,7 +145,7 @@ function fromJsonLd(jobPosting: JsonLdJobPosting, slug: string, url: string): De
       addressCountry: address?.addressCountry ?? null,
     },
     description: descriptionToText(jobPosting.description),
-    applyUrl: null,
+    applyUrl: findApplyUrl(root),
   }
 }
 
@@ -209,7 +213,6 @@ function fromRenderedHtml(root: ReturnType<typeof parse>, slug: string, url: str
     .join("\n")
 
   const employmentType = overviewValue(root, "Jobtype")
-  const applyUrl = normalizeUrl(root.querySelector("a.action.primary")?.getAttribute("href"))
 
   return {
     slug,
@@ -230,17 +233,16 @@ function fromRenderedHtml(root: ReturnType<typeof parse>, slug: string, url: str
       addressCountry: "DK",
     },
     description,
-    applyUrl,
+    applyUrl: findApplyUrl(root),
   }
 }
 
 export function parseJobPostingFromHtml(html: string, slug: string, url: string): DetailResult {
   const jobPosting = findJobPostingJsonLd(parse(html))
-  // The rendered branch reads text nodes, so it parses the page without the
-  // markup a browser never shows; the JSON-LD lookup needs the scripts.
-  return stripInvisible(
-    jobPosting ? fromJsonLd(jobPosting, slug, url) : fromRenderedHtml(parse(visibleHtml(html)), slug, url),
-  )
+  // The rendered page is parsed without the markup a browser never shows; the
+  // JSON-LD lookup needs the scripts.
+  const visible = parse(visibleHtml(html))
+  return stripInvisible(jobPosting ? fromJsonLd(jobPosting, slug, url, visible) : fromRenderedHtml(visible, slug, url))
 }
 
 export const detail = defineCommand({

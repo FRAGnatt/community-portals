@@ -27,7 +27,8 @@ export async function apiFetch<T>(path: string, params?: Record<string, string>)
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`)
     }
-    return response.json() as Promise<T>
+    // Third-party strings reach every apiFetch command's output from here.
+    return stripInvisible(await response.json()) as T
   }
   throw new Error("API request failed after max retries")
 }
@@ -156,36 +157,36 @@ export function visibleHtml(html: string): string {
     .replace(/<!--[\s\S]*?(?:-->|$)/g, "")
     .replace(/<(script|style|template)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, "")
   // One pass, collecting what is kept: slicing the string per hidden element
-  // would make a page full of them quadratic.
-  const open = /<([a-zA-Z][a-zA-Z0-9-]*)(\s[^>]*)?>/g
+  // would make a page full of them quadratic. Quoted attribute values may hold
+  // `>` or `</tag>`, so they are matched whole rather than ending the tag.
+  const tags = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)((?:"[^"]*"|'[^']*'|[^"'>])*)>/g
   const kept: string[] = []
   let from = 0
   let m: RegExpExecArray | null
-  while ((m = open.exec(src)) !== null) {
-    if (!m[2] || !isHiddenTag(m[2])) continue
-    const tag = m[1].toLowerCase()
-    let end = open.lastIndex
-    if (!VOID_TAGS.has(tag) && !m[0].endsWith("/>")) {
-      // Skip to the matching close tag, counting nested same-name elements. An
-      // unclosed hidden element runs to the end: failing closed drops visible
-      // text, failing open would leak the hidden text.
-      const same = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi")
-      same.lastIndex = end
+  while ((m = tags.exec(src)) !== null) {
+    if (m[1] || !isHiddenTag(m[3])) continue
+    const tag = m[2].toLowerCase()
+    let end = tags.lastIndex
+    if (!VOID_TAGS.has(tag)) {
+      // Skip to the matching close tag, counting nested same-name elements; a
+      // `/>` does not close a non-void element. An unclosed hidden element runs
+      // to the end: failing closed drops visible text, failing open would leak
+      // the hidden text.
       end = src.length
       let depth = 1
       let s: RegExpExecArray | null
-      while ((s = same.exec(src)) !== null) {
-        if (s[1]) depth--
-        else if (!s[0].endsWith("/>")) depth++
+      while ((s = tags.exec(src)) !== null) {
+        if (s[2].toLowerCase() !== tag) continue
+        depth += s[1] ? -1 : 1
         if (depth === 0) {
-          end = same.lastIndex
+          end = tags.lastIndex
           break
         }
       }
     }
     kept.push(src.slice(from, m.index))
     from = end
-    open.lastIndex = end
+    tags.lastIndex = end
   }
   kept.push(src.slice(from))
   return kept.join("")

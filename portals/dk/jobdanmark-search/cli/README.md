@@ -11,7 +11,7 @@ CLI for the [Jobdanmark.dk](https://www.jobdanmark.dk) public job search API.
 ## Installation
 
 ```bash
-cd .agents/skills/jobdanmark-search/cli
+cd portals/dk/jobdanmark-search/cli
 bun install
 ```
 
@@ -27,7 +27,7 @@ bun install
 | `autocomplete` | Suggest job titles and categories for a query |
 | `locations` | Suggest municipalities, zip codes, and regions for a query |
 
-All commands accept `--format json|table|plain` (default: `json`).
+`search`, `categories`, `autocomplete`, and `locations` accept `--format json|table|plain`; `detail` accepts `--format json|plain` (default: `json`).
 All errors are written to **stderr** as `{ "error": "...", "code": "..." }` and the process exits with code `1`.
 
 ---
@@ -194,7 +194,7 @@ bun run src/cli.ts detail it-chef-soeges-til-rah --format plain
     "postalCode": "6950",
     "addressCountry": "DK"
   },
-  "description": "<p>Full HTML description...</p>",
+  "description": "Full plain-text description, one line per paragraph or list item...",
   "applyUrl": "https://example.com/apply"
 }
 ```

@@ -17,9 +17,13 @@ afterEach(() => {
   globalThis.setTimeout = originalSetTimeout;
 });
 
-function instantTimers() {
-  globalThis.setTimeout = ((fn: () => void) =>
-    originalSetTimeout(fn, 0)) as unknown as typeof setTimeout;
+function instantTimers(): number[] {
+  const delays: number[] = [];
+  globalThis.setTimeout = ((fn: () => void, ms: number) => {
+    delays.push(ms);
+    return originalSetTimeout(fn, 0);
+  }) as unknown as typeof setTimeout;
+  return delays;
 }
 
 function stubFetch(responses: Array<() => Response>): { calls: number } {
@@ -60,11 +64,17 @@ for (const [name, call] of wrappers) {
     });
 
     test("gives up after the initial attempt plus six retries on persistent 5xx", async () => {
-      instantTimers();
+      const delays = instantTimers();
       const state = stubFetch([() => new Response("", { status: 500 })]);
 
       await expect(call()).rejects.toThrow(/500/);
       expect(state.calls).toBe(7);
+      const base = [500, 1000, 2000, 4000, 5000, 5000];
+      expect(delays).toHaveLength(base.length);
+      delays.forEach((ms, i) => {
+        expect(ms).toBeGreaterThanOrEqual(base[i]);
+        expect(ms).toBeLessThan(base[i] + 500);
+      });
     });
   });
 }

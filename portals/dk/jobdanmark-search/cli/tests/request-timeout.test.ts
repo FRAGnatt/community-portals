@@ -1,45 +1,37 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { apiFetch, apiPost, htmlFetch } from "../src/helpers";
 
 // A stalled upstream connection (accepted socket, no response) would otherwise
-// hang the CLI forever - fetch has no default timeout. Assert both request
-// wrappers carry an AbortSignal timeout. Fails on the pre-fix code (no signal).
+// hang the CLI forever - fetch has no default timeout. Assert every request
+// wrapper hands fetch the signal from AbortSignal.timeout(15000), not just any signal.
 const originalFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
+const wrappers: Array<[string, () => Promise<unknown>, string]> = [
+  ["apiFetch", () => apiFetch("/search"), "{}"],
+  ["htmlFetch", () => htmlFetch("https://jobdanmark.dk/job/x"), "<html></html>"],
+  ["apiPost", () => apiPost("/search", { q: "x" }), "{}"],
+];
+
 describe("request timeout", () => {
-  test("apiFetch passes an AbortSignal timeout to fetch", async () => {
-    let init: RequestInit | undefined;
-    globalThis.fetch = (async (_url: string | URL | Request, i?: RequestInit) => {
-      init = i;
-      return new Response("{}", { status: 200 });
-    }) as unknown as typeof fetch;
+  for (const [name, call, body] of wrappers) {
+    test(`${name} passes a 15s AbortSignal.timeout to fetch`, async () => {
+      const timeout = spyOn(AbortSignal, "timeout");
+      let init: RequestInit | undefined;
+      globalThis.fetch = (async (_url: string | URL | Request, i?: RequestInit) => {
+        init = i;
+        return new Response(body, { status: 200 });
+      }) as unknown as typeof fetch;
 
-    await apiFetch("/search");
-    expect(init?.signal).toBeInstanceOf(AbortSignal);
-  });
-
-  test("htmlFetch passes an AbortSignal timeout to fetch", async () => {
-    let init: RequestInit | undefined;
-    globalThis.fetch = (async (_url: string | URL | Request, i?: RequestInit) => {
-      init = i;
-      return new Response("<html></html>", { status: 200 });
-    }) as unknown as typeof fetch;
-
-    await htmlFetch("https://jobdanmark.dk/job/x");
-    expect(init?.signal).toBeInstanceOf(AbortSignal);
-  });
-
-  test("apiPost passes an AbortSignal timeout to fetch", async () => {
-    let init: RequestInit | undefined;
-    globalThis.fetch = (async (_url: string | URL | Request, i?: RequestInit) => {
-      init = i;
-      return new Response("{}", { status: 200 });
-    }) as unknown as typeof fetch;
-
-    await apiPost("/search", { q: "x" });
-    expect(init?.signal).toBeInstanceOf(AbortSignal);
-  });
+      try {
+        await call();
+        expect(timeout).toHaveBeenCalledWith(15000);
+        expect(timeout.mock.results[0].value).toBe(init?.signal);
+      } finally {
+        timeout.mockRestore();
+      }
+    });
+  }
 });

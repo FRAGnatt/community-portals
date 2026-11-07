@@ -87,6 +87,15 @@ describe("parseJobPostingFromHtml JSON-LD", () => {
     expect(parseJobPostingFromHtml(pageWithScripts(JSON.stringify(without)), "b", "https://jobdanmark.dk/job/b").description).toBe("");
   });
 
+  test("reads the apply button alongside JSON-LD", () => {
+    const page = pageWithScripts(JSON.stringify({ "@type": "JobPosting", title: "A" })).replace(
+      "<body></body>",
+      '<body><a href="/apply/a?x=1&amp;y=2" class="action primary">Ans&#xF8;g nu</a></body>',
+    );
+
+    expect(parseJobPostingFromHtml(page, "a", "https://jobdanmark.dk/job/a").applyUrl).toBe("https://jobdanmark.dk/apply/a?x=1&y=2");
+  });
+
   test("skips malformed scripts and finds a JobPosting in an array", () => {
     const scripts = [
       "{not-json",

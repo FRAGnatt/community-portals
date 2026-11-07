@@ -37,9 +37,10 @@ describe("jobdanmark autocomplete filtering", () => {
   // item.text.toLowerCase() and the whole command died as API_ERROR (#421).
   // An item with no usable text can never match the (required, non-empty)
   // query, so it must simply be skipped.
-  test("skips an item with null text instead of crashing the command", () => {
+  test("skips an item with null or missing text instead of crashing the command", () => {
     const g = groups();
     g[0].items.push({ id: "4", text: null as unknown as string, value: 13, category: "title", slug: "x" });
+    g[0].items.push({ id: "5", value: 14, category: "title", slug: "y" } as unknown as (typeof g)[number]["items"][number]);
 
     const out = filterAutocompleteGroups(g, "data");
 

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { autocomplete } from "../src/commands/autocomplete";
 import { detail } from "../src/commands/detail";
 import { normalizeItem } from "../src/commands/search";
 
@@ -18,6 +19,9 @@ const HIDDEN_MARKUP = [
   "<p hidden>HIDDEN attribute</p>",
   '<p style="mso-hide:all">HIDDEN mso</p>',
   '<p aria-hidden="true" title="a hidden gem">Visible despite the words.</p>',
+  '<p title="a>b" hidden>HIDDEN quoted gt</p>',
+  '<div hidden><span title="</div>">HIDDEN quoted close</span></div>',
+  "<div hidden/>HIDDEN self-closed div</div>",
 ].join("");
 const LEAKED = /HIDDEN|WordDocument|MsoNormal|alert/;
 const INVISIBLE_CHAR = /[\u{E0000}-\u{E007F}‮​⁦\u001B﻿]/u;
@@ -67,17 +71,19 @@ afterEach(() => {
 
 // The real command handler with a stubbed fetch, as detail-backoff.test.ts
 // drives it; process.exit throws so a parse failure fails the test, not the run.
-async function runDetail(page: string): Promise<string> {
-  globalThis.fetch = (async () => new Response(page, { status: 200 })) as unknown as typeof fetch;
+async function runCommand(command: unknown, body: string, flags: Record<string, unknown>, positional: string[] = []): Promise<string> {
+  globalThis.fetch = (async () => new Response(body, { status: 200 })) as unknown as typeof fetch;
   process.exit = ((code?: number) => {
     throw new Error(`process.exit(${code})`);
   }) as unknown as typeof process.exit;
   const stdout: string[] = [];
   console.log = ((...args: unknown[]) => stdout.push(args.join(" "))) as typeof console.log;
-  const handler = (detail as unknown as { handler: (ctx: unknown) => Promise<void> }).handler;
-  await handler({ flags: { format: "json" }, positional: ["some-slug"], signal: new AbortController().signal });
+  const handler = (command as { handler: (ctx: unknown) => Promise<void> }).handler;
+  await handler({ flags, positional, signal: new AbortController().signal });
   return stdout.join("\n");
 }
+
+const runDetail = (page: string) => runCommand(detail, page, { format: "json" }, ["some-slug"]);
 
 describe("hidden text from a posting never reaches the output", () => {
   test("JSON-LD page: hidden markup dropped from the description, invisible characters stripped", async () => {
@@ -98,6 +104,17 @@ describe("hidden text from a posting never reaches the output", () => {
     expect(job.description).not.toMatch(LEAKED);
     expect(job.description).toContain("Visible despite the words.");
     expect(job.description).toContain("identificere relevante datasæt og muligheder");
+  });
+
+  test("autocomplete strips invisible characters from suggestions in every format", async () => {
+    const body = JSON.stringify([
+      { title: "Stillingsbetegnelser", items: [{ id: `1${INVISIBLE}`, text: `Data${INVISIBLE} Engineer`, value: 11, category: "title", slug: "data-engineer" }] },
+    ]);
+    for (const format of ["json", "table", "plain"]) {
+      const stdout = await runCommand(autocomplete, body, { query: "data", format });
+      expect(stdout).toContain("Data Engineer");
+      expect(stdout).not.toMatch(INVISIBLE_CHAR);
+    }
   });
 
   test("search results strip invisible characters from listing fields", () => {
