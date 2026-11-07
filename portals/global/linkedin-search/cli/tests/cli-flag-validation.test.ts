@@ -24,7 +24,7 @@ describe("LinkedIn CLI flag validation", () => {
     test("boolean flag (no value) exits 1 with BAD_ARG", async () => {
       const result = await runCLI(["search", "-l", LOCATION, "--jobage"]);
       expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toBeTruthy();
+      expect(parsedStderr(result.stderr).code).toBe("BAD_ARG");
     });
 
     test("valid integer passes validation", async () => {
