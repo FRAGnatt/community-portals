@@ -1,0 +1,6 @@
+{
+  "name": "hireseeker-search-cli", "version": "1.0.0", "type": "module",
+  "scripts": { "start": "bun run src/cli.ts", "test": "bun test --timeout 30000", "typecheck": "tsc --noEmit" },
+  "dependencies": {},
+  "devDependencies": { "typescript": "^5.4.0", "@types/bun": "1.4.4" }
+}
