@@ -1,6 +1,6 @@
 import { describe, expect, test, spyOn } from "bun:test"
 import { main } from "../src/cli.ts"
-import { clean } from "../src/text.ts"
+import { clean, elements } from "../src/text.ts"
 import { fetchPage, parseDetail, parseSearch, permitted, professions, publicURL, resolveProfession } from "../src/portal.ts"
 
 const robots = "User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /search/"
@@ -171,6 +171,26 @@ describe("access boundaries and failure paths", () => {
 })
 
 describe("review regressions", () => {
+  test.each(["search", "detail"])("%s: missing or blank timestamps stay null", kind => {
+    const html = kind === "search" ? sample : detail
+    const parse = (source: string) => kind === "search" ? parseSearch(source)[0] : parseDetail(source, "/vacancy/123-python")
+    for (const timestamp of ["", " ", "&nbsp;", "&#x200b;"]) {
+      const blank = html.replaceAll('dateTime="2026-11-11T12:00:00+03:00"', `datetime="${timestamp}"`)
+      expect(parse(blank).seen_at).toBeNull()
+    }
+    expect(parse(html.replaceAll('dateTime="2026-11-11T12:00:00+03:00"', "")).seen_at).toBeNull()
+  })
+  test("a slash does not self-close ordinary HTML elements", () => {
+    const html = sample.replaceAll('data-vacancy-card="123">', 'data-vacancy-card="123" />')
+      .replaceAll('href="/vacancy/123-python">', 'href="/vacancy/123-python" />')
+    expect(parseSearch(html)).toEqual(parseSearch(sample))
+    expect(elements("<div/>before<div/>inside</div>after</div>", "div").map(x => clean(x.content)))
+      .toEqual(["before inside after", "inside"])
+  })
+  test("void elements stay outside the element stack even without a slash", () => {
+    expect(elements("<div>before<BR>after<img/>end</div>", "div|br|img").map(x => x.content))
+      .toEqual(["before<BR>after<img/>end"])
+  })
   test("entity-encoded inline hiding is removed in every output format", async () => {
     for (const style of ["display&#58;none", "display&#58none", "display&#x3anone", "display&colon;none", "visibility&#x3a;hidden",
       "mso-hide&colon;all", "color:red&semi;display&Tab;&colon;none"]) {

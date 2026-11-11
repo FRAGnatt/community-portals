@@ -51,7 +51,7 @@ export function* htmlTags(html: string, name = "[a-zA-Z][a-zA-Z0-9-]*") {
   const pattern = new RegExp(`<(/?)(${name})(?=[\\s/>])(\\s${ATTRS})?\\s*/?>`, "gi")
   for (const match of html.matchAll(pattern)) yield {
     name: match[2].toLowerCase(), closing: Boolean(match[1]), attributes: attributes(match[3] ?? ""),
-    start: match.index!, end: match.index! + match[0].length, selfClosing: /\/\s*>$/.test(match[0]),
+    start: match.index!, end: match.index! + match[0].length, voidElement: VOID_TAGS.has(match[2].toLowerCase()),
   }
 }
 
@@ -61,7 +61,7 @@ export function elements(html: string, name: string, select: (attrs: Record<stri
   const found: { attributes: Record<string, string>; content: string; start: number }[] = []
   for (const tag of htmlTags(html, name)) {
     if (!tag.closing) {
-      if (!tag.selfClosing) stack.push({ tag, selected: select(tag.attributes) })
+      if (!tag.voidElement) stack.push({ tag, selected: select(tag.attributes) })
     } else {
       const open = stack.pop()
       if (open?.selected) found.push({ attributes: open.tag.attributes,

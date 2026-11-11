@@ -102,6 +102,11 @@ export function resolveProfession(query: string, catalog: ReturnType<typeof prof
   throw new PortalError("Use a profession code from 'professions'; arbitrary keyword filters are unsupported", "BAD_QUERY")
 }
 
+function appearance(html: string): string | null {
+  const seen = elements(html, "time", attrs => attrs["data-testid"] === "vacancy-seen-at")[0]
+  return stripInvisible(seen?.attributes.datetime ?? "").trim() || null
+}
+
 export function parseSearch(html: string): Job[] {
   const source = visibleHtml(html)
   let hasSample = false
@@ -121,10 +126,9 @@ export function parseSearch(html: string): Job[] {
     const title = clean(anchor.content)
     if (!title) continue
     const company = anchors.find(a => a.attributes.href?.startsWith("/vacancy-list/company/"))
-    const seen = elements(card.content, "time", attrs => attrs["data-testid"] === "vacancy-seen-at")[0]
     jobs.push({ id: url.pathname.split("/")[2].split("-")[0], title,
       company: company ? clean(company.content) || null : null, location: null, date: null,
-      url: url.href, seen_at: seen?.attributes.datetime ?? null })
+      url: url.href, seen_at: appearance(card.content) })
   }
   if (!jobs.length) throw new PortalError("No readable public cards; coverage unknown; use WebSearch", "PARSE_ERROR")
   return stripInvisible([...new Map(jobs.map(job => [job.id, job])).values()])
@@ -140,9 +144,8 @@ export function parseDetail(html: string, input: string): Job {
     return classes.includes("font-medium") && classes.includes("text-foreground/80")
   })[0]?.content
   const employer = company ? clean(company) || null : null
-  const seen = elements(header!, "time", attrs => attrs["data-testid"] === "vacancy-seen-at")[0]?.attributes.datetime
   const url = publicURL(input)
   return stripInvisible({ id: url.pathname.split("/")[2].split("-")[0], title: clean(title),
     company: employer === "Неизвестный работодатель" ? null : employer, location: null, date: null,
-    url: url.href, seen_at: seen ?? null, description: clean(description) })
+    url: url.href, seen_at: appearance(header!), description: clean(description) })
 }
