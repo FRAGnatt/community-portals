@@ -1,4 +1,4 @@
-import { clean, visibleHtml, stripInvisible } from "./text.ts"
+import { clean, elements, htmlTags, visibleHtml, stripInvisible } from "./text.ts"
 
 export const ORIGIN = "https://hireseeker.ru"
 export class PortalError extends Error {
@@ -24,14 +24,18 @@ export function permitted(robots: string, path: string): boolean {
   type Group = { agents: string[]; rules: { allow: boolean; path: string }[] }
   const groups: Group[] = []
   let group: Group = { agents: [], rules: [] }
+  let hasDirectives = false
   for (const raw of robots.split(/\r?\n/)) {
     const match = raw.split("#")[0].trim().match(/^(user-agent|allow|disallow)\s*:\s*(.*)$/i)
     if (!match) continue
     const [, key, value] = match
     if (key.toLowerCase() === "user-agent") {
-      if (group.rules.length) { groups.push(group); group = { agents: [], rules: [] } }
-      group.agents.push(value.toLowerCase())
-    } else if (group.agents.length && value) group.rules.push({ allow: key.toLowerCase() === "allow", path: value })
+      if (hasDirectives) { groups.push(group); group = { agents: [], rules: [] }; hasDirectives = false }
+      if (value) group.agents.push(value.toLowerCase())
+    } else {
+      hasDirectives = true
+      if (group.agents.length && value) group.rules.push({ allow: key.toLowerCase() === "allow", path: value })
+    }
   }
   groups.push(group)
   const score = (g: Group) => Math.max(-1, ...g.agents.map(a =>
@@ -69,7 +73,10 @@ export async function fetchPage(input: string, robots?: string, fetcher: typeof 
       const next = response.headers.get("location")
       await response.body?.cancel()
       if (!next) throw new PortalError("Redirect has no location", "HTTP_ERROR")
-      url = publicURL(new URL(next, url).href)
+      let destination: URL
+      try { destination = new URL(next, url) }
+      catch { throw new PortalError("Invalid redirect URL", "BAD_URL") }
+      url = publicURL(destination.href)
       continue
     }
     if (response.status === 404 || response.status === 410) return null
@@ -97,34 +104,43 @@ export function resolveProfession(query: string, catalog: ReturnType<typeof prof
 
 export function parseSearch(html: string): Job[] {
   const source = visibleHtml(html)
-  if (!source.includes('data-testid="category-sample"')) throw new PortalError("Public category sample missing; use WebSearch", "PARSE_ERROR")
+  let hasSample = false
+  for (const tag of htmlTags(source)) {
+    if (!tag.closing && tag.attributes["data-testid"] === "category-sample") { hasSample = true; break }
+  }
+  if (!hasSample) throw new PortalError("Public category sample missing; use WebSearch", "PARSE_ERROR")
   const jobs: Job[] = []
-  for (const chunk of source.split(/(?=<div\b[^>]*data-vacancy-card=")/).slice(1)) {
-    const anchor = chunk.match(/<a\b[^>]*data-testid="vacancy-title-link"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/)
+  for (const card of elements(source, "div", attrs => Object.hasOwn(attrs, "data-vacancy-card"))) {
+    const anchors = elements(card.content, "a")
+    const anchor = anchors.find(a => a.attributes["data-testid"] === "vacancy-title-link")
     if (!anchor) continue
     let url: URL
-    try { url = publicURL(anchor[1]) } catch { continue }
+    if (!anchor.attributes.href) continue
+    try { url = publicURL(anchor.attributes.href) } catch { continue }
     if (!url.pathname.startsWith("/vacancy/")) continue
-    const title = clean(anchor[2])
+    const title = clean(anchor.content)
     if (!title) continue
-    const company = chunk.match(/<a\b[^>]*href="\/vacancy-list\/company\/[^>]*>([\s\S]*?)<\/a>/)
-    const seen = chunk.match(/<time\b[^>]*dateTime="([^"]+)"[^>]*data-testid="vacancy-seen-at"/i)
+    const company = anchors.find(a => a.attributes.href?.startsWith("/vacancy-list/company/"))
+    const seen = elements(card.content, "time", attrs => attrs["data-testid"] === "vacancy-seen-at")[0]
     jobs.push({ id: url.pathname.split("/")[2].split("-")[0], title,
-      company: company ? clean(company[1]) || null : null, location: null, date: null,
-      url: url.href, seen_at: seen?.[1] ?? null })
+      company: company ? clean(company.content) || null : null, location: null, date: null,
+      url: url.href, seen_at: seen?.attributes.datetime ?? null })
   }
   if (!jobs.length) throw new PortalError("No readable public cards; coverage unknown; use WebSearch", "PARSE_ERROR")
   return stripInvisible([...new Map(jobs.map(job => [job.id, job])).values()])
 }
 export function parseDetail(html: string, input: string): Job {
   const source = visibleHtml(html)
-  const header = source.match(/<header\b[^>]*>([\s\S]*?<h1\b[\s\S]*?)<\/header>/)?.[1]
-  const title = header?.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)?.[1]
-  const description = source.match(/<section\b[^>]*id="vacancy-description"[^>]*>([\s\S]*?)<\/section>/)?.[1]
+  const header = elements(source, "header").find(h => elements(h.content, "h1").length)?.content
+  const title = elements(header ?? "", "h1")[0]?.content
+  const description = elements(source, "section", attrs => attrs.id === "vacancy-description")[0]?.content
   if (!title || !description || !clean(title) || !clean(description)) throw new PortalError("Readable vacancy header/description missing", "PARSE_ERROR")
-  const company = header?.match(/<(?:span|a)\b[^>]*class="font-medium text-foreground\/80[^>]*>([\s\S]*?)<\/(?:span|a)>/)?.[1]
+  const company = elements(header!, "span|a", attrs => {
+    const classes = (attrs.class ?? "").split(/\s+/)
+    return classes.includes("font-medium") && classes.includes("text-foreground/80")
+  })[0]?.content
   const employer = company ? clean(company) || null : null
-  const seen = header?.match(/<time\b[^>]*dateTime="([^"]+)"[^>]*data-testid="vacancy-seen-at"/i)?.[1]
+  const seen = elements(header!, "time", attrs => attrs["data-testid"] === "vacancy-seen-at")[0]?.attributes.datetime
   const url = publicURL(input)
   return stripInvisible({ id: url.pathname.split("/")[2].split("-")[0], title: clean(title),
     company: employer === "Неизвестный работодатель" ? null : employer, location: null, date: null,

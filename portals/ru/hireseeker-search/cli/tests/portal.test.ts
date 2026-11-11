@@ -1,5 +1,6 @@
 import { describe, expect, test, spyOn } from "bun:test"
 import { main } from "../src/cli.ts"
+import { clean } from "../src/text.ts"
 import { fetchPage, parseDetail, parseSearch, permitted, professions, publicURL, resolveProfession } from "../src/portal.ts"
 
 const robots = "User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /search/"
@@ -89,14 +90,25 @@ describe("public portal contract", () => {
     expect((await output(["detail", "/vacancy/123-python", "--format", "plain"], board().fetcher)).stdout).toContain("Build APIs. Remote.")
   })
   test("professions is discoverable and 404/410 detail returns null", async () => {
-    expect(JSON.parse((await output(["professions"], board().fetcher)).stdout)[0].code).toBe("python_backend")
-    expect((await output(["detail", "999"], board({ "/vacancy/999": null }).fetcher)).stdout).toBe("null")
+    const catalogBoard = board()
+    expect(JSON.parse((await output(["professions"], catalogBoard.fetcher)).stdout)[0].code).toBe("python_backend")
+    expect(catalogBoard.calls).toEqual(["/robots.txt", "/llms.txt"])
+    const detailBoard = board()
+    expect(JSON.parse((await output(["detail", "/vacancy/123-python"], detailBoard.fetcher)).stdout).id).toBe("123")
+    expect(detailBoard.calls).toEqual(["/robots.txt", "/vacancy/123-python"])
+    const missingBoard = board({ "/vacancy/999": null })
+    expect((await output(["detail", "999"], missingBoard.fetcher)).stdout).toBe("null")
+    expect(missingBoard.calls).toEqual(["/robots.txt", "/vacancy/999"])
     expect(await fetchPage("/vacancy/999", robots, mockFetch(() => response("", 410)))).toBeNull()
   })
-  test("invalid arguments yield JSON stderr and exit 1, without any network", () => {
+  test("invalid arguments avoid network and separately yield JSON stderr with exit 1", async () => {
     for (const args of [[], ["unknown"], ["search"], ["search", "-q"], ["search", "--location", "Moscow"],
       ["search", "-q", "Python", "--page", "2"], ["search", "-q", "Python", "--limit", "0"],
       ["detail", "https://evil.example/vacancy/123"], ["detail", "123", "--format", "table"]]) {
+      let requests = 0
+      const fetcher = mockFetch(() => { requests++; throw new Error("Unexpected network") })
+      await expect(main(args, fetcher)).rejects.toHaveProperty("code")
+      expect(requests).toBe(0)
       const proc = Bun.spawnSync([process.execPath, "run", `${import.meta.dir}/../src/cli.ts`, ...args])
       expect(proc.exitCode).toBe(1)
       expect(proc.stdout.toString()).toBe("")
@@ -132,7 +144,9 @@ describe("access boundaries and failure paths", () => {
     expect(await fetchPage("/llms.txt", robots, fetcher, async ms => { sleeps.push(ms) })).toBe("ok")
     expect(calls).toBe(3)
     expect(sleeps[0]).toBeGreaterThanOrEqual(250)
+    expect(sleeps[0]).toBeLessThan(350)
     expect(sleeps[1]).toBeGreaterThanOrEqual(500)
+    expect(sleeps[1]).toBeLessThan(600)
     calls = 0
     await expect(fetchPage("/llms.txt", robots, mockFetch(() => { calls++; return response("", 503) }), async () => {})).rejects.toMatchObject({ code: "HTTP_ERROR" })
     expect(calls).toBe(4)
@@ -153,5 +167,78 @@ describe("access boundaries and failure paths", () => {
       [mockFetch(() => response("{}", 200, { "content-type": "application/json" })), "PARSE_ERROR"],
       [mockFetch(() => { throw new Error("timeout") }), "NETWORK_ERROR"],
     ] as const) await expect(fetchPage("/llms.txt", robots, fetcher)).rejects.toMatchObject({ code })
+  })
+})
+
+describe("review regressions", () => {
+  test("entity-encoded inline hiding is removed in every output format", async () => {
+    for (const style of ["display&#58;none", "display&#58none", "display&#x3anone", "display&colon;none", "visibility&#x3a;hidden",
+      "mso-hide&colon;all", "color:red&semi;display&Tab;&colon;none"]) {
+      const hidden = `<span style="${style}">SECRET</span>`
+      const job = parseDetail(detail.replace("Build APIs", `${hidden}Build APIs`), "/vacancy/123-python")
+      expect(job.description).toBe("Build APIs. Remote.")
+      const html = sample.replaceAll("Python&#32;developer", `Python${hidden} developer`)
+      for (const format of ["json", "table", "plain"]) {
+        const result = await output(["search", "-q", "Python", "--format", format], board({ "/vacancy-list/python_backend": html }).fetcher)
+        expect(result.stdout).toContain("Python developer")
+        expect(result.stdout).not.toContain("SECRET")
+      }
+    }
+  })
+  test("raw comparisons and once-encoded entities retain visible text", () => {
+    expect(clean("<p>2 < 3 and 5 > 4</p>")).toBe("2 < 3 and 5 > 4")
+    expect(clean("<p>literal &amp;lt; and &#x3c;</p>")).toBe("literal &lt; and <")
+  })
+  test("detail timestamp survives reordered attributes independently of search", () => {
+    const html = detail.replace('dateTime="2026-11-11T12:00:00+03:00" data-testid="vacancy-seen-at"',
+      'data-testid="vacancy-seen-at" dateTime="2026-11-11T12:00:00+03:00"')
+    expect(parseDetail(html, "/vacancy/123-python").seen_at).toBe("2026-11-11T12:00:00+03:00")
+  })
+  test("empty robots agents cannot override a wildcard denial", () => {
+    const policy = "User-agent: *\nDisallow: /\nUser-agent:\nAllow: /vacancy/"
+    expect(permitted(policy, "/vacancy/123")).toBe(false)
+    expect(permitted("User-agent:\nAllow: /", "/vacancy/123")).toBe(false)
+  })
+  test("an empty robots directive does not merge separate crawler groups", () => {
+    const policy = "User-agent: other\nDisallow:\nUser-agent: *\nDisallow: /"
+    expect(permitted(policy, "/vacancy/123")).toBe(false)
+    expect(permitted("User-agent: *\nDisallow:\nUser-agent: other\nDisallow: /", "/vacancy/123")).toBe(true)
+  })
+  test("malformed redirect locations are BAD_URL errors with no second request", async () => {
+    let calls = 0
+    await expect(fetchPage("/vacancy/123", robots, mockFetch(() => {
+      calls++; return response("", 302, { location: "http://[" })
+    }))).rejects.toMatchObject({ code: "BAD_URL" })
+    expect(calls).toBe(1)
+  })
+  test("search attributes allow different order, quotes, casing and unquoted values", () => {
+    const variant = `<section DATA-TESTID='category-sample'><DIV DATA-VACANCY-CARD=123>
+      <a href='/vacancy/123-python' title='x > y' DATA-TESTID=vacancy-title-link>Python developer</a>
+      <a href='/vacancy-list/company/example' class='font-medium'>Example &amp; Co</a>
+      <time data-testid=vacancy-seen-at datetime='2026-11-11T12:00:00+03:00'>Seen</time></DIV></section>`
+    expect(parseSearch(variant)).toEqual(parseSearch(sample))
+  })
+  test("both timestamp parsers ignore attribute order", () => {
+    const swap = (html: string) => html.replaceAll('dateTime="2026-11-11T12:00:00+03:00" data-testid="vacancy-seen-at"',
+      'data-testid="vacancy-seen-at" dateTime="2026-11-11T12:00:00+03:00"')
+    expect(parseSearch(swap(sample))[0].seen_at).toBe("2026-11-11T12:00:00+03:00")
+    expect(parseDetail(swap(detail), "/vacancy/123-python").seen_at).toBe("2026-11-11T12:00:00+03:00")
+  })
+  test("detail selectors accept single quotes and separate the site/vacancy headers", () => {
+    const html = detail.replaceAll('"', "'").replace("font-medium text-foreground/80", "other text-foreground/80 font-medium")
+    const prefix = "<header><span class='font-medium text-foreground/80'>Wrong employer</span></header>"
+    expect(parseDetail(prefix + html, "/vacancy/123-python")).toMatchObject({ title: "Python developer", company: "Example & Co",
+      seen_at: "2026-11-11T12:00:00+03:00", description: "Build APIs. Remote." })
+  })
+  test("search caps every format at 25 even if the source sample grows", async () => {
+    const html = '<section data-testid="category-sample">' + Array.from({ length: 26 }, (_, i) => card.replaceAll("123", String(i + 1))).join("") + "</section>"
+    for (const extra of [[], ["--limit", "100"], ["--limit", "2"]]) {
+      const expected = extra[1] === "2" ? 2 : 25
+      for (const format of ["json", "table", "plain"]) {
+        const result = await output(["search", "-q", "Python", ...extra, "--format", format], board({ "/vacancy-list/python_backend": html }).fetcher)
+        const count = format === "json" ? JSON.parse(result.stdout).results.length : (result.stdout.match(/Python developer/g) ?? []).length
+        expect(count).toBe(expected)
+      }
+    }
   })
 })

@@ -53,7 +53,7 @@ export async function main(argv: string[], fetcher: typeof fetch = fetch): Promi
       const url = `${ORIGIN}/vacancy-list/${code}`
       const html = await fetchPage(url, robots, fetcher)
       if (html === null) throw new PortalError("Category unavailable; coverage unknown", "NOT_FOUND")
-      const results = parseSearch(html).slice(0, limit)
+      const results = parseSearch(html).slice(0, Math.min(limit ?? 25, 25))
       rows = results as unknown as Record<string, unknown>[]
       output = { meta: { count: results.length, page: 1, total: null, partial: true,
         source_url: url, coverage: "Public SSR sample only; not all matching vacancies. date is unknown; seen_at is first appearance on HireSeeker." }, results }

@@ -4,17 +4,12 @@ function numericEntity(cp: number): string {
 }
 
 function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    // Numeric character references: decimal (&#233;) and hexadecimal (&#xE9;).
-    .replace(/&#(\d+);/g, (_, dec) => numericEntity(parseInt(dec, 10)))
-    .replace(/&#[xX]([0-9a-fA-F]+);/g, (_, hex) => numericEntity(parseInt(hex, 16)))
-    .replace(/&nbsp;/g, " ")
+  const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+    nbsp: "\u00a0", colon: ":", semi: ";", Tab: "\t", NewLine: "\n" }
+  // One pass: &amp;lt; is visible literal &lt;, not a second encoding layer.
+  return text.replace(/&(?:#(\d+);?|#[xX]([\da-fA-F]+);?|(amp|lt|gt|quot|apos|nbsp|colon|semi|Tab|NewLine);)/g,
+    (_, dec: string | undefined, hex: string | undefined, name: string) =>
+      dec !== undefined ? numericEntity(parseInt(dec, 10)) : hex !== undefined ? numericEntity(parseInt(hex, 16)) : named[name])
 }
 
 /**
@@ -42,13 +37,45 @@ export function stripInvisible<T>(value: T): T {
 // Quoted attribute values may hold `>` or a close-tag string; neither ends the tag.
 const ATTRS = String.raw`(?:[^>"']|"[^"]*"|'[^']*')*`
 
+export function attributes(source: string): Record<string, string> {
+  const result: Record<string, string> = Object.create(null)
+  for (const match of source.matchAll(/([^\s"'=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
+    const name = match[1].toLowerCase()
+    // HTML uses the first occurrence of a duplicate attribute.
+    if (!Object.hasOwn(result, name)) result[name] = decodeHtmlEntities(match[2] ?? match[3] ?? match[4] ?? "")
+  }
+  return result
+}
+
+export function* htmlTags(html: string, name = "[a-zA-Z][a-zA-Z0-9-]*") {
+  const pattern = new RegExp(`<(/?)(${name})(?=[\\s/>])(\\s${ATTRS})?\\s*/?>`, "gi")
+  for (const match of html.matchAll(pattern)) yield {
+    name: match[2].toLowerCase(), closing: Boolean(match[1]), attributes: attributes(match[3] ?? ""),
+    start: match.index!, end: match.index! + match[0].length, selfClosing: /\/\s*>$/.test(match[0]),
+  }
+}
+
+export function elements(html: string, name: string, select: (attrs: Record<string, string>) => boolean = () => true) {
+  type Tag = ReturnType<typeof htmlTags> extends Generator<infer T> ? T : never
+  const stack: { tag: Tag; selected: boolean }[] = []
+  const found: { attributes: Record<string, string>; content: string; start: number }[] = []
+  for (const tag of htmlTags(html, name)) {
+    if (!tag.closing) {
+      if (!tag.selfClosing) stack.push({ tag, selected: select(tag.attributes) })
+    } else {
+      const open = stack.pop()
+      if (open?.selected) found.push({ attributes: open.tag.attributes,
+        content: html.slice(open.tag.end, tag.start), start: open.tag.start })
+    }
+  }
+  return found.sort((a, b) => a.start - b.start)
+}
+
 const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"])
 
 /** Whether an opening tag's attributes keep it from rendering: `hidden`, or an inline style that hides it. */
 function isHiddenTag(attrs: string): boolean {
-  for (const m of attrs.matchAll(/([^\s"'=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
-    const name = m[1].toLowerCase()
-    const value = m[2] ?? m[3] ?? m[4] ?? ""
+  for (const [name, value] of Object.entries(attributes(attrs))) {
     if (name === "hidden") return true
     if (name === "style" && /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden|mso-hide\s*:\s*all)\b/i.test(value)) {
       return true
@@ -107,6 +134,6 @@ export function visibleHtml(html: string): string {
 }
 
 export function clean(html: string): string {
-  return stripInvisible(decodeHtmlEntities(visibleHtml(html).replace(new RegExp(`<${ATTRS}>`, "g"), " ")))
+  return stripInvisible(decodeHtmlEntities(visibleHtml(html).replace(new RegExp(`</?[a-zA-Z][a-zA-Z0-9-]*(?=[\\s/>])${ATTRS}>`, "g"), " ")))
     .replace(/\s+/g, " ").trim()
 }

@@ -24,8 +24,9 @@ its `dateTime` is service appearance, not employer publication. `date` stays nul
 No company/location/contact pages or origin URLs are fetched by the CLI.
 
 No calls to `/api/`, `/mcp`, disallowed `/search/`, private routes, or third-party
-hosts. All redirect destinations are checked before following them. Missing or
-changed HTML is an explicit error; a 403 never becomes archive evidence.
+hosts. All redirect destinations are checked before following them. Missing
+expected markup or changed HTML is an explicit error. Removed detail pages
+(HTTP 404/410) return `null`; a 403 never becomes archive evidence.
 
 If these public pages become restricted, stop and use existing WebSearch tools
 without bypassing the restriction. Search snippets alone do not verify a job.
